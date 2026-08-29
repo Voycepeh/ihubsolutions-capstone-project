@@ -44,11 +44,3 @@ dist/
 *.tmp
 *.temp
 ~$*
-
-# Project data stays ignored by default.
-# Only explicitly approved development datasets should be committed.
-data/**
-!data/README.md
-!data/**/
-!data/**/README.md
-!data/raw/data_sample_v1.json

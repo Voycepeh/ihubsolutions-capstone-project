@@ -1,21 +1,22 @@
 # Contributing
 
-This is a data and optimization capstone project, so keep the workflow simple and keep the supplied iHub data local.
+This is a data and optimization capstone project, so keep the workflow simple.
 
 ## First time setup
 
 1. Clone the repository.
 2. Open it in your IDE, for example VS Code.
 3. Create a local Python environment if needed.
-4. Place the provided `data_sample_v1.json` file in `data/raw/`.
+4. Use the development datasets under `data/` for analysis and solver work.
 5. Install the packages listed in `requirements.txt`.
 
-Expected local structure:
+Expected structure:
 
 ```text
 project-root/
 ├── data/
 │   └── raw/
+│       ├── README.md
 │       └── data_sample_v1.json
 ├── notebooks/
 ├── src/
@@ -27,7 +28,7 @@ project-root/
 
 | Work | Folder |
 | --- | --- |
-| Local datasets | `data/` |
+| Development datasets | `data/` |
 | Exploration and solver experiments | `notebooks/` |
 | Reusable solver and validation code | `src/` |
 | Demo application or API | `deployment/` |
@@ -35,11 +36,11 @@ project-root/
 
 ## Data rule
 
-Do not upload or commit the supplied JSON dataset or any derived order level datasets.
+Development data for this capstone may be committed to the repository so the team can work with the same reproducible inputs.
 
-Although the supplied file contains masked identifiers and no PII, it is based on real iHub order data and should remain local. The repository `.gitignore` is configured to ignore data files.
+The supplied `data_sample_v1.json` benchmark is a development dataset. Its source documentation states that `OrderId`, `OrderNo` and item `Code` are masked and that no PII is included.
 
-Before committing, check that only project code, notebooks, documentation and other approved artifacts are included.
+Do not commit production data, unmasked data, confidential or restricted data, PII, credentials, secrets or any dataset the team is not authorised to place in this repository.
 
 ## Packing logic
 

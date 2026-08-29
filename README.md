@@ -38,7 +38,7 @@ The provided sample dataset contains 2,000 masked real iHub order request and re
 
 The dataset is useful as a reference benchmark for carton selection, number of cartons, volumetric utilization and latency. Because every supplied case is feasible and successful, the team should also create its own edge cases and failure cases.
 
-See [`docs/dataset-specification.md`](docs/dataset-specification.md) for the full field and constraint reference.
+The development dataset and its supplied README are kept together under [`data/raw/`](data/raw/). See [`docs/dataset-specification.md`](docs/dataset-specification.md) for the consolidated field and constraint reference.
 
 ## Repository structure
 
@@ -55,7 +55,7 @@ project-root/
 
 | Folder | Purpose |
 | --- | --- |
-| `data/` | Local project data only. Data files are not committed to GitHub. |
+| `data/` | Development datasets used by the project. |
 | `notebooks/` | Exploration, solver experiments, benchmarking and analysis. |
 | `src/` | Reusable packing, validation, evaluation and utility code. |
 | `deployment/` | Demo application, API, dashboard or other deployment assets. |
@@ -63,9 +63,11 @@ project-root/
 
 ## Data handling
 
-The sample data comes from real iHub orders even though identifiers are masked and no PII is included. Keep the actual JSON data local under `data/raw/` and do not commit it to this repository.
+This capstone repository is intended to contain development data used by the team. Development datasets may therefore be committed under `data/` so everyone can work with the same reproducible inputs.
 
-The repository `.gitignore` is configured so files under `data/` remain local while README instruction files can still be tracked.
+The supplied sample comes from real iHub orders, but the development copy has masked `OrderId`, `OrderNo` and item `Code` values and contains no PII.
+
+Do not commit production data, unmasked data, confidential or restricted data, PII, credentials, secrets or any dataset that the team is not authorised to place in this repository.
 
 ## Benchmarking direction
 

@@ -1,10 +1,44 @@
 # iHub Solutions Capstone Project
 
-Repository for the iHub Solutions capstone project.
+NUS Industry 4.0 Master's capstone project developing a self built 3D bin packing and cartonization solution for iHub.
 
-## Project overview
+## Project objective
 
-This repository keeps the team's analysis, modelling, reusable code, documentation and deployment work in one consistent structure. It follows the same simple project layout used in the team's IT5006 repository so contributors know where work belongs.
+The project aims to design and evaluate our own 3D bin packing solver using historical request and response examples from iHub's existing packing service as a benchmark.
+
+The reference service receives order items, candidate cartons and configurable packing rules, then returns the cartons selected and the items assigned to each carton. The main optimization mode in the provided dataset is `bins_number`, which means minimizing the number of cartons used.
+
+## Core packing constraints
+
+The solution should reproduce the important operational rules present in the reference data:
+
+1. Item dimensions in millimetres.
+2. Item weight in kilograms.
+3. Carton dimensions and maximum weight.
+4. Item quantity.
+5. `VerticalRotation`, including items that must remain upright.
+6. `BinMaxFillCheckMinItemQty`, which controls when the maximum fill rule applies.
+7. `BinMaxFillPct`, the configurable volumetric fill limit for larger orders.
+8. `BinBuffer`, the configurable internal clearance reserved inside a carton.
+
+## Reference dataset
+
+The provided sample dataset contains 2,000 masked real iHub order request and response pairs.
+
+| Property | Value |
+| --- | --- |
+| Records | 2,000 |
+| Format | JSON array |
+| Units | mm for dimensions, kg for weight |
+| Candidate cartons | 7 fixed boxes, Box2 to Box9 |
+| Optimization mode | `bins_number` |
+| Result status | All 2,000 successful |
+| Unpacked items | None in the supplied sample |
+| Privacy | Order and item identifiers masked, no PII |
+
+The dataset is useful as a reference benchmark for carton selection, number of cartons, volumetric utilization and latency. Because every supplied case is feasible and successful, the team should also create its own edge cases and failure cases.
+
+See [`docs/dataset-specification.md`](docs/dataset-specification.md) for the full field and constraint reference.
 
 ## Repository structure
 
@@ -16,29 +50,38 @@ project-root/
 ├── src/
 ├── deployment/
 ├── docs/
-├── .github/
-├── CONTRIBUTING.md
-├── AGENTS.md
-├── requirements.txt
 └── README.md
 ```
 
-- `data/` contains the local project data structure. Project datasets themselves are not committed to GitHub.
-- `notebooks/` contains exploratory analysis, modelling and experiments.
-- `src/` contains reusable Python code where needed.
-- `deployment/` contains dashboard, application and deployment assets.
-- `docs/` contains reports, presentation materials, references and project documentation.
+| Folder | Purpose |
+| --- | --- |
+| `data/` | Local project data only. Data files are not committed to GitHub. |
+| `notebooks/` | Exploration, solver experiments, benchmarking and analysis. |
+| `src/` | Reusable packing, validation, evaluation and utility code. |
+| `deployment/` | Demo application, API, dashboard or other deployment assets. |
+| `docs/` | Dataset specification, design notes, reports, presentation materials and project documentation. |
 
-## Data policy
+## Data handling
 
-Project data stays local unless the team explicitly agrees that a file is safe and appropriate to commit. The repository `.gitignore` excludes everything under `data/` except the README instruction files.
+The sample data comes from real iHub orders even though identifiers are masked and no PII is included. Keep the actual JSON data local under `data/raw/` and do not commit it to this repository.
 
-Never commit passwords, tokens, API keys, confidential information or other secrets.
+The repository `.gitignore` is configured so files under `data/` remain local while README instruction files can still be tracked.
 
-## Environment
+## Benchmarking direction
 
-Project dependencies are recorded in [`requirements.txt`](requirements.txt) and should be updated as the project develops.
+A useful comparison against the existing service should consider at least:
 
-## Team contribution guide
+1. Whether all items are packed successfully.
+2. Number of cartons used.
+3. Carton type selected.
+4. Volumetric utilization through `UsedSpace` or an equivalent metric.
+5. Compliance with rotation, weight, buffer and fill constraints.
+6. Runtime or latency.
 
-Local setup and collaboration guidance are kept separately in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+Matching the reference output exactly is not automatically the goal. A self developed solver may produce a different valid arrangement or carton combination while still meeting the project objective. Evaluation should therefore distinguish feasibility, constraint compliance and optimization quality.
+
+## Team workflow
+
+Local setup and contribution guidance are kept in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+AI agents working in this repository must follow [`AGENTS.md`](AGENTS.md).

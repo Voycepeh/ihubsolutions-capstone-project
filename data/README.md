@@ -1,7 +1,15 @@
 # Data
 
-This folder defines the local data layout for the capstone project.
+Project datasets stay local and are not committed to GitHub.
 
-Project datasets are not committed to GitHub by default. Keep raw, cleaned, processed, sampled and model-ready data files on your own computer.
+The current reference dataset is `data_sample_v1.json`, containing 2,000 masked real iHub order request and response pairs for benchmarking the team's 3D bin packing solution.
 
-Use the subfolders and README files here to document where local data should be placed and how it is used.
+Place the local source file under:
+
+```text
+data/raw/
+```
+
+The repository `.gitignore` excludes data files while allowing README instruction files to remain tracked.
+
+For the dataset fields, carton catalog, packing parameters and interpretation rules, see [`../docs/dataset-specification.md`](../docs/dataset-specification.md).

@@ -1,55 +1,64 @@
 # Contributing
 
-This is a data and analytics capstone project, so keep the workflow simple.
+This is a data and optimization capstone project, so keep the workflow simple and keep the supplied iHub data local.
 
-## First-time setup
+## First time setup
 
-1. Open your IDE, for example VS Code.
-2. Clone this repository:
+1. Clone the repository.
+2. Open it in your IDE, for example VS Code.
+3. Create a local Python environment if needed.
+4. Place the provided `data_sample_v1.json` file in `data/raw/`.
+5. Install the packages listed in `requirements.txt`.
 
-```bash
-git clone https://github.com/Voycepeh/ihubsolutions-capstone-project.git
-```
-
-3. Open the cloned repository in your IDE.
-4. Place project datasets in the appropriate folder under:
+Expected local structure:
 
 ```text
-data/raw/
+project-root/
+├── data/
+│   └── raw/
+│       └── data_sample_v1.json
+├── notebooks/
+├── src/
+├── deployment/
+└── docs/
 ```
 
-Project data is for local use and is ignored by Git.
-
-## Where work goes
+## Where work belongs
 
 | Work | Folder |
 | --- | --- |
-| Raw and local datasets | `data/` |
-| EDA, modelling and analysis notebooks | `notebooks/` |
-| Reusable Python scripts | `src/` |
-| Dashboard, app and deployment files | `deployment/` |
-| Reports, slides, references and project documents | `docs/` |
+| Local datasets | `data/` |
+| Exploration and solver experiments | `notebooks/` |
+| Reusable solver and validation code | `src/` |
+| Demo application or API | `deployment/` |
+| Specifications, reports, presentation material and design notes | `docs/` |
 
-For most analysis work, use `notebooks/` and read local files from `data/raw/`.
+## Data rule
 
-## What to upload
+Do not upload or commit the supplied JSON dataset or any derived order level datasets.
 
-Upload project work such as notebooks, Python scripts, reports, documentation and deployment files.
+Although the supplied file contains masked identifiers and no PII, it is based on real iHub order data and should remain local. The repository `.gitignore` is configured to ignore data files.
 
-**Do not upload or commit project data by default.**
+Before committing, check that only project code, notebooks, documentation and other approved artifacts are included.
 
-Everything under `data/` stays on your computer unless the team explicitly agrees otherwise. Only README instruction files inside `data/` are tracked.
+## Packing logic
 
-Before committing, check that no dataset, credential, token, API key, personal information or confidential material is included.
+Before changing solver logic, read [`docs/dataset-specification.md`](docs/dataset-specification.md).
 
-## Working with the team
+The implementation must account for the reference constraints, especially `VerticalRotation`, carton maximum weight, `BinMaxFillCheckMinItemQty`, `BinMaxFillPct` and `BinBuffer`.
 
-Use your own branch where practical and submit changes through a pull request. Do not overwrite or delete another teammate's work without agreement.
+Do not assume that matching the reference carton choice exactly is the only valid result. Multiple valid packing arrangements may exist. Benchmarking should distinguish feasibility, constraint compliance and optimization quality.
 
-Keep each change focused on the task you are working on.
+## Testing
 
-## AI-assisted work
+The provided 2,000 records are all successful cases with no unpacked items. Add deliberate edge and failure cases as the solver develops.
 
-AI tools may assist the project, but team members remain responsible for reviewing, understanding and validating AI-assisted work before it is used or submitted.
+When recording results, do not claim a test, benchmark or performance result unless it was actually run.
 
-AI agents must follow [`AGENTS.md`](AGENTS.md).
+## Team workflow
+
+Use your own branch for changes where practical and submit work back through a pull request. Keep changes focused and do not overwrite another teammate's work without agreement.
+
+Never commit passwords, tokens, API keys or other secrets.
+
+AI assisted work must be reviewed, understood and validated by a human teammate before submission. AI agents must follow [`AGENTS.md`](AGENTS.md).

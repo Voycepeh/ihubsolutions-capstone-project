@@ -45,8 +45,10 @@ dist/
 *.temp
 ~$*
 
-# Project data stays local and is not committed to GitHub.
+# Project data stays ignored by default.
+# Only explicitly approved development datasets should be committed.
 data/**
 !data/README.md
 !data/**/
 !data/**/README.md
+!data/raw/data_sample_v1.json

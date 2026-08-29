@@ -1,7 +1,15 @@
-# Raw data
+# Raw Data
 
-Place original project source files here on your local machine.
+Place the provided `data_sample_v1.json` file in this folder for local analysis and development.
 
-Do not commit the dataset to GitHub unless the team has explicitly confirmed that the specific file is safe, permitted and useful to version-control.
+The file contains masked real iHub order data. `OrderId`, `OrderNo` and item `Code` values are masked and no PII is included, but the dataset must still remain local and must not be committed to GitHub.
 
-Keep source files unchanged where practical. Perform cleaning and transformations in notebooks or reusable code and write derived local data to appropriate folders under `data/` if needed.
+Expected local path:
+
+```text
+data/raw/data_sample_v1.json
+```
+
+The supplied sample contains 2,000 request and response pairs from the existing iHub packing service. Use it as reference benchmark data, not as the only test suite.
+
+See [`../../docs/dataset-specification.md`](../../docs/dataset-specification.md) for the full schema and packing constraints.

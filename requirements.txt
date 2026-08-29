@@ -1,0 +1,6 @@
+# Add project dependencies here as they are introduced.
+# Example:
+# pandas
+# numpy
+# scikit-learn
+# matplotlib

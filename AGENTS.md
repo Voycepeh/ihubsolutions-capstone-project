@@ -12,7 +12,7 @@ This repository contains an NUS Industry 4.0 Master's capstone project developin
 
 Use the existing top level folders:
 
-1. `data/` for approved development datasets and local project data.
+1. `data/` for development datasets used by the project.
 2. `notebooks/` for exploration, solver experiments and benchmarking.
 3. `src/` for reusable application and solver code.
 4. `deployment/` for demo, API, dashboard or deployment assets.
@@ -22,11 +22,11 @@ Do not create new top level folders unless a human teammate explicitly asks for 
 
 ## Data safety
 
-The supplied `data/raw/data_sample_v1.json` benchmark is an explicitly approved development dataset for this repository. Its source documentation states that `OrderId`, `OrderNo` and item `Code` values are masked and that no PII is included.
+Development datasets for this capstone may be committed under `data/` so the team can work with reproducible inputs.
 
-Do not assume this approval applies to other datasets. Raw production data, unmasked data, confidential data, PII and derived order level datasets must remain uncommitted unless a human teammate explicitly confirms that they are approved for version control.
+The supplied `data/raw/data_sample_v1.json` benchmark is a development dataset. Its source documentation states that `OrderId`, `OrderNo` and item `Code` values are masked and that no PII is included.
 
-Never commit passwords, API keys, tokens, private keys or other secrets.
+Never commit production data, unmasked data, confidential or restricted data, PII, credentials, passwords, API keys, tokens, private keys or other secrets. Do not add any dataset that the team is not authorised to place in this repository.
 
 ## Packing rules that must not be ignored
 

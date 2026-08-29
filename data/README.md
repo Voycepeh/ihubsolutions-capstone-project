@@ -1,10 +1,10 @@
 # Data
 
-Project data is ignored by default unless the team has explicitly approved a development dataset for version control.
+This project uses development datasets that may be committed to the repository so the team can work from the same reproducible inputs.
 
-## Approved development dataset
+## Reference development dataset
 
-The current approved reference dataset is:
+The current reference dataset is:
 
 ```text
 data/raw/data_sample_v1.json
@@ -18,8 +18,8 @@ The accompanying source documentation is kept at:
 data/raw/README.md
 ```
 
-The repository `.gitignore` continues to ignore other files under `data/` by default. Only explicitly approved development datasets should be added as exceptions.
+Additional development datasets created for testing, edge cases or benchmarking may also be stored under `data/` where appropriate.
 
-Do not commit raw production data, unmasked data, confidential data, PII, credentials or other sensitive material.
+Do not commit production data, unmasked data, confidential or restricted data, PII, credentials, secrets or any dataset the team is not authorised to place in this repository.
 
 For the dataset fields, carton catalog, packing parameters and interpretation rules, see [`../docs/dataset-specification.md`](../docs/dataset-specification.md).

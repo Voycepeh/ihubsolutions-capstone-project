@@ -7,7 +7,7 @@ This is a data and optimization capstone project, so keep the workflow simple.
 1. Clone the repository.
 2. Open it in your IDE, for example VS Code.
 3. Create a local Python environment if needed.
-4. The approved benchmark dataset is available at `data/raw/data_sample_v1.json` once it has been added to the repository.
+4. Use the development datasets under `data/` for analysis and solver work.
 5. Install the packages listed in `requirements.txt`.
 
 Expected structure:
@@ -28,7 +28,7 @@ project-root/
 
 | Work | Folder |
 | --- | --- |
-| Approved development datasets and local datasets | `data/` |
+| Development datasets | `data/` |
 | Exploration and solver experiments | `notebooks/` |
 | Reusable solver and validation code | `src/` |
 | Demo application or API | `deployment/` |
@@ -36,11 +36,11 @@ project-root/
 
 ## Data rule
 
-The supplied `data_sample_v1.json` benchmark is an explicitly approved development dataset for this repository. The source documentation states that `OrderId`, `OrderNo` and item `Code` are masked and that no PII is included.
+Development data for this capstone may be committed to the repository so the team can work with the same reproducible inputs.
 
-Other data remains ignored by default. Do not commit raw production data, unmasked data, confidential data, PII, credentials or derived order level datasets unless the team has explicitly reviewed and approved them for version control.
+The supplied `data_sample_v1.json` benchmark is a development dataset. Its source documentation states that `OrderId`, `OrderNo` and item `Code` are masked and that no PII is included.
 
-Before committing, check that any new data file is intentionally approved rather than relying on a broad `.gitignore` exception.
+Do not commit production data, unmasked data, confidential or restricted data, PII, credentials, secrets or any dataset the team is not authorised to place in this repository.
 
 ## Packing logic
 

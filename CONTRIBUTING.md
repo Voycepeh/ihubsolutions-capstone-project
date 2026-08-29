@@ -1,21 +1,22 @@
 # Contributing
 
-This is a data and optimization capstone project, so keep the workflow simple and keep the supplied iHub data local.
+This is a data and optimization capstone project, so keep the workflow simple.
 
 ## First time setup
 
 1. Clone the repository.
 2. Open it in your IDE, for example VS Code.
 3. Create a local Python environment if needed.
-4. Place the provided `data_sample_v1.json` file in `data/raw/`.
+4. The approved benchmark dataset is available at `data/raw/data_sample_v1.json` once it has been added to the repository.
 5. Install the packages listed in `requirements.txt`.
 
-Expected local structure:
+Expected structure:
 
 ```text
 project-root/
 ├── data/
 │   └── raw/
+│       ├── README.md
 │       └── data_sample_v1.json
 ├── notebooks/
 ├── src/
@@ -27,7 +28,7 @@ project-root/
 
 | Work | Folder |
 | --- | --- |
-| Local datasets | `data/` |
+| Approved development datasets and local datasets | `data/` |
 | Exploration and solver experiments | `notebooks/` |
 | Reusable solver and validation code | `src/` |
 | Demo application or API | `deployment/` |
@@ -35,11 +36,11 @@ project-root/
 
 ## Data rule
 
-Do not upload or commit the supplied JSON dataset or any derived order level datasets.
+The supplied `data_sample_v1.json` benchmark is an explicitly approved development dataset for this repository. The source documentation states that `OrderId`, `OrderNo` and item `Code` are masked and that no PII is included.
 
-Although the supplied file contains masked identifiers and no PII, it is based on real iHub order data and should remain local. The repository `.gitignore` is configured to ignore data files.
+Other data remains ignored by default. Do not commit raw production data, unmasked data, confidential data, PII, credentials or derived order level datasets unless the team has explicitly reviewed and approved them for version control.
 
-Before committing, check that only project code, notebooks, documentation and other approved artifacts are included.
+Before committing, check that any new data file is intentionally approved rather than relying on a broad `.gitignore` exception.
 
 ## Packing logic
 

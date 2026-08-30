@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+<defs>
+  <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#4f5d75"/></marker>
+  <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#eb6c36"/></marker>
+  <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0,8 3,0 6" fill="#2e5aa8"/></marker>
+</defs>
+<rect width="1600" height="900" fill="#f5f5f5"/>
+<text x="70" y="70" fill="#2d3142" font-size="40" font-family="Instrument Serif, Georgia, serif">Config-driven packing solver</text>
+<text x="70" y="108" fill="#4f5d75" font-size="18" font-family="Geist, Arial, sans-serif">One reusable Python engine, multiple interfaces, configurable packing rules.</text>
+<rect x="55" y="155" width="350" height="610" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.12)"/>
+<rect x="620" y="155" width="430" height="610" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.12)"/>
+<rect x="1260" y="155" width="285" height="610" rx="8" fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.12)"/>
+<rect x="70" y="161" width="64" height="18" rx="2" fill="#f5f5f5"/><text x="102" y="174" text-anchor="middle" font-size="9" letter-spacing="1.8" fill="#6b7280" font-family="Geist Mono, monospace">INPUTS</text>
+<rect x="635" y="161" width="70" height="18" rx="2" fill="#f5f5f5"/><text x="670" y="174" text-anchor="middle" font-size="9" letter-spacing="1.8" fill="#6b7280" font-family="Geist Mono, monospace">ENGINE</text>
+<rect x="1275" y="161" width="92" height="18" rx="2" fill="#f5f5f5"/><text x="1321" y="174" text-anchor="middle" font-size="9" letter-spacing="1.8" fill="#6b7280" font-family="Geist Mono, monospace">CONSUMERS</text>
+<line x1="355" y1="270" x2="620" y2="270" stroke="#4f5d75" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="355" y1="445" x2="620" y2="445" stroke="#4f5d75" stroke-width="2" marker-end="url(#arrow)"/>
+<line x1="355" y1="620" x2="620" y2="620" stroke="#eb6c36" stroke-width="2.4" marker-end="url(#arrow-accent)"/>
+<line x1="1050" y1="445" x2="1260" y2="445" stroke="#2e5aa8" stroke-width="2.2" marker-end="url(#arrow-link)"/>
+<rect x="90" y="205" width="265" height="130" rx="6" fill="#ffffff" stroke="#2d3142"/>
+<rect x="105" y="220" width="44" height="16" rx="2" fill="none" stroke="#4f5d75"/><text x="127" y="232" text-anchor="middle" font-size="9" fill="#4f5d75" font-family="Geist Mono, monospace">DATA</text>
+<text x="110" y="268" font-size="19" font-weight="600" fill="#2d3142" font-family="Geist, Arial, sans-serif">Order data</text>
+<text x="110" y="296" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">CSV or JSON</text>
+<text x="110" y="319" font-size="13" fill="#6b7280" font-family="Geist, Arial, sans-serif">items · dimensions · weight · quantity</text>
+<rect x="90" y="380" width="265" height="130" rx="6" fill="#ffffff" stroke="#2d3142"/>
+<rect x="105" y="395" width="44" height="16" rx="2" fill="none" stroke="#4f5d75"/><text x="127" y="407" text-anchor="middle" font-size="9" fill="#4f5d75" font-family="Geist Mono, monospace">BOXES</text>
+<text x="110" y="443" font-size="19" font-weight="600" fill="#2d3142" font-family="Geist, Arial, sans-serif">Box catalogue</text>
+<text x="110" y="471" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">Provided defaults or user-defined</text>
+<text x="110" y="494" font-size="13" fill="#6b7280" font-family="Geist, Arial, sans-serif">dimensions · max weight · box code</text>
+<rect x="90" y="555" width="265" height="130" rx="6" fill="#fff3ed" stroke="#eb6c36" stroke-width="1.4"/>
+<rect x="105" y="570" width="50" height="16" rx="2" fill="none" stroke="#eb6c36"/><text x="130" y="582" text-anchor="middle" font-size="9" fill="#c85528" font-family="Geist Mono, monospace">CONFIG</text>
+<text x="110" y="618" font-size="19" font-weight="600" fill="#2d3142" font-family="Geist, Arial, sans-serif">Packing configuration</text>
+<text x="110" y="646" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">Rules without changing engine code</text>
+<text x="110" y="669" font-size="13" fill="#6b7280" font-family="Geist, Arial, sans-serif">fill % · buffer · rotations · objective</text>
+<rect x="655" y="220" width="360" height="145" rx="6" fill="#ffffff" stroke="#2d3142"/>
+<text x="680" y="263" font-size="20" font-weight="600" fill="#2d3142" font-family="Geist, Arial, sans-serif">1. Parse &amp; validate</text>
+<text x="680" y="294" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">Normalize CSV / JSON into one internal model</text>
+<text x="680" y="319" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">Validate required fields and quantity expansion</text>
+<text x="680" y="344" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">Apply default + user configuration</text>
+<rect x="655" y="395" width="360" height="145" rx="6" fill="#fff3ed" stroke="#eb6c36" stroke-width="1.6"/>
+<text x="680" y="438" font-size="20" font-weight="600" fill="#2d3142" font-family="Geist, Arial, sans-serif">2. Constraint engine</text>
+<text x="680" y="469" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">Orientation / upright-only rules</text>
+<text x="680" y="494" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">20 kg max weight · 6 mm buffer · max fill %</text>
+<text x="680" y="519" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">Reject infeasible placements early</text>
+<rect x="655" y="570" width="360" height="145" rx="6" fill="#ffffff" stroke="#2d3142"/>
+<text x="680" y="613" font-size="20" font-weight="600" fill="#2d3142" font-family="Geist, Arial, sans-serif">3. 3D packing &amp; optimisation</text>
+<text x="680" y="644" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">Generate placements and candidate solutions</text>
+<text x="680" y="669" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">Primary objective: minimize number of boxes</text>
+<text x="680" y="694" font-size="14" fill="#4f5d75" font-family="Geist, Arial, sans-serif">Return box assignments, utilization and runtime</text>
+<rect x="1090" y="365" width="135" height="160" rx="6" fill="#eef4ff" stroke="#2e5aa8" stroke-width="1.4"/>
+<text x="1157" y="408" text-anchor="middle" font-size="19" font-weight="600" fill="#2d3142" font-family="Geist, Arial, sans-serif">Result</text>
+<text x="1157" y="438" text-anchor="middle" font-size="13" fill="#4f5d75" font-family="Geist, Arial, sans-serif">status</text>
+<text x="1157" y="460" text-anchor="middle" font-size="13" fill="#4f5d75" font-family="Geist, Arial, sans-serif">boxes used</text>
+<text x="1157" y="482" text-anchor="middle" font-size="13" fill="#4f5d75" font-family="Geist, Arial, sans-serif">placements</text>
+<text x="1157" y="504" text-anchor="middle" font-size="13" fill="#4f5d75" font-family="Geist, Arial, sans-serif">metrics</text>
+<rect x="1295" y="275" width="215" height="145" rx="6" fill="#ffffff" stroke="#2d3142"/>
+<rect x="1310" y="290" width="42" height="16" rx="2" fill="none" stroke="#4f5d75"/><text x="1331" y="302" text-anchor="middle" font-size="9" fill="#4f5d75" font-family="Geist Mono, monospace">PY</text>
+<text x="1315" y="340" font-size="19" font-weight="600" fill="#2d3142" font-family="Geist, Arial, sans-serif">Python script / library</text>
+<text x="1315" y="372" font-size="13" fill="#4f5d75" font-family="Geist Mono, monospace">solve(order, boxes, config)</text>
+<text x="1315" y="397" font-size="13" fill="#6b7280" font-family="Geist, Arial, sans-serif">MVP / local use</text>
+<rect x="1295" y="470" width="215" height="145" rx="6" fill="#ffffff" stroke="#2e5aa8"/>
+<rect x="1310" y="485" width="42" height="16" rx="2" fill="none" stroke="#2e5aa8"/><text x="1331" y="497" text-anchor="middle" font-size="9" fill="#2e5aa8" font-family="Geist Mono, monospace">API</text>
+<text x="1315" y="535" font-size="19" font-weight="600" fill="#2d3142" font-family="Geist, Arial, sans-serif">FastAPI service</text>
+<text x="1315" y="567" font-size="13" fill="#2e5aa8" font-family="Geist Mono, monospace">POST /pack</text>
+<text x="1315" y="592" font-size="13" fill="#6b7280" font-family="Geist, Arial, sans-serif">same engine · JSON request/response</text>
+<text x="800" y="820" text-anchor="middle" fill="#2d3142" font-size="24" font-family="Instrument Serif, Georgia, serif" font-style="italic">The interface can change. The packing engine does not.</text>
+<text x="800" y="853" text-anchor="middle" fill="#4f5d75" font-size="14" font-family="Geist, Arial, sans-serif">CSV / JSON + box catalogue + config → reusable engine → structured packing result</text>
+</svg>

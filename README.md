@@ -10,6 +10,45 @@ The supplied 2,000 iHub request and response records are used as a benchmark for
 
 The intended MVP is a reusable Python packing engine. A Python script or library interface comes first, with FastAPI optionally added later as a thin service layer over the same engine.
 
+## Our Optimization Approach
+
+Three dimensional bin packing is a computationally difficult optimization problem. Exact methods exist, but the literature also contains established constructive heuristics, local search, tabu search and geometric placement heuristics because solution quality must often be balanced against computational effort.
+
+This project therefore does **not** claim that every packing returned by the solver is mathematically globally optimal.
+
+Instead, we are building a **lightweight heuristic optimization solver** that aims to:
+
+1. always prioritize valid, constraint compliant packing,
+2. minimize the number of cartons as the primary objective,
+3. prefer better carton utilization when carton count is equal,
+4. return results quickly enough for practical Python or API use,
+5. remain modular so placement, ordering and improvement strategies can be tested independently,
+6. measure solution quality rather than assume it.
+
+The planned solver direction is:
+
+```text
+Input
+  ↓
+Validate constraints
+  ↓
+Deterministic item ordering
+  ↓
+Candidate carton selection
+  ↓
+3D placement heuristic
+  ↓
+Fast feasible solution
+  ↓
+Optional bounded improvement
+  ↓
+Validate, score and return
+```
+
+This is still an optimization project. The difference is that we optimize under a practical computational budget rather than require a proof of global optimality for every instance.
+
+The full rationale and literature review are documented in [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md). It covers exact 3D bin packing, constructive heuristics, guided local search, extreme point placement and hybrid approaches, and explains how those findings shape the project architecture.
+
 ## What Should the Solver Support?
 
 Based on the supplied dataset, README requirements and initial EDA, the MVP solver should support:
@@ -108,6 +147,8 @@ Evaluation should therefore consider:
 7. Correct handling of unpackable items.
 8. Runtime and latency.
 
+A key part of the project is making the term **good enough** measurable. The solver should be judged on both packing quality and computational performance. Where practical, small simplified instances may also be compared with a stronger exact method or lower bound to estimate the quality gap without making exact optimization a dependency of the operational solver.
+
 ## Repository Structure
 
 ```text
@@ -136,6 +177,7 @@ project-root/
 | [`README.md`](README.md) | High level project story and direction |
 | [`notebooks/Inital EDA.ipynb`](notebooks/Inital%20EDA.ipynb) | Evidence, benchmark and exploratory analysis |
 | [`docs/MVP Plan.md`](docs/MVP%20Plan.md) | Detailed features, architecture, configuration, evaluation and sprint plan |
+| [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) | Literature review and rationale for the lightweight heuristic optimization approach |
 | [`docs/dataset-specification.md`](docs/dataset-specification.md) | Dataset fields and supplied packing rules |
 
 ## Data Handling

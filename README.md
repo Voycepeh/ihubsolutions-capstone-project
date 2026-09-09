@@ -23,20 +23,45 @@ Instead, we are building a **lightweight heuristic optimization solver** that ai
 3. return results quickly enough for practical Python or API use,
 4. measure solution quality rather than assume it.
 
-At a high level, the solver takes the packing inputs, checks the operational constraints, builds a fast valid packing plan, tries a small number of improvements, and returns the best valid result found within the available computational budget.
+### High level solver logic
+
+The solver first performs cheap order level checks, then performs the more important 3D placement test.
+
+Total order volume and weight can tell us that a carton is definitely impossible, but they cannot prove that the items physically fit. A valid packing still requires the items to be placed at non overlapping XYZ positions using only permitted orientations.
+
+The box catalogue is an input to the solver and is fully configurable. The current seven iHub cartons are benchmark defaults only.
+
+Packing rules are also configuration driven. Under the current benchmark defaults, orders containing six or fewer physical items may use up to the full carton volume. Orders containing more than six physical items are limited to 70% volumetric fill per carton. Both the quantity threshold and fill percentage are configurable.
 
 ```mermaid
 flowchart TD
-    A[Order Data + Box Catalogue + Packing Rules]
-    B[Validate Constraints]
-    C[Build Fast Valid Packing Plan]
-    D[Try Small Improvements]
-    E[Return Best Valid Result]
+    A[Order + Configurable Box Catalogue + Packing Rules]
+    B[Order Pre Check<br/>sum volume, weight and physical quantity]
+    C[Filter Candidate Boxes<br/>weight, allowed fill, buffer and individual item fit]
+    D[Try Smallest Suitable Box]
+    E[3D Placement Solver<br/>sort items and test XYZ positions + allowed orientations]
+    F{All items placed<br/>without overlap?}
+    G[Valid Single Carton Solution]
+    H[Try Next Box]
+    I{More single box<br/>candidates?}
+    J[Multi Carton Packing<br/>place items across additional cartons]
+    K[Try Alternative Ordering / Repacking]
+    L[Return Best Valid Solution]
 
-    A --> B --> C --> D --> E
+    A --> B --> C --> D --> E --> F
+    F -->|Yes| G --> K --> L
+    F -->|No| H --> I
+    I -->|Yes| D
+    I -->|No| J --> K
 ```
 
-**In simple terms:** inputs → valid packing plan → small improvements → best valid result.
+The most important step is the **3D placement solver**. For each item, the solver tests promising XYZ positions and permitted orientations while enforcing box boundaries, non overlap, weight, buffer and fill constraints.
+
+For example, a `20 × 20 × 20` box has a volume of 8,000 cubic units. An item measuring `30 × 10 × 20` has a smaller volume of 6,000 cubic units, but it still cannot fit because one dimension is longer than the box in every possible orientation. Volume alone is therefore not enough.
+
+For multiple items, the solver must determine whether they can share the same physical space without overlap. Two `15 × 10 × 10` items can fit into a `20 × 20 × 20` box by occupying different positions. Three can also fit under suitable permitted orientations and placements. This geometric placement problem is the core of the solver.
+
+Once a valid solution exists, the solver may try a small number of alternative item orderings, carton choices or repacking attempts and keep the best valid result found within the available computational budget.
 
 This is still an optimization project. The difference is that we optimize under a practical computational budget rather than require a proof of global optimality for every instance.
 

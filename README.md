@@ -20,30 +20,23 @@ Instead, we are building a **lightweight heuristic optimization solver** that ai
 
 1. always prioritize valid, constraint compliant packing,
 2. minimize the number of cartons as the primary objective,
-3. prefer better carton utilization when carton count is equal,
-4. return results quickly enough for practical Python or API use,
-5. remain modular so placement, ordering and improvement strategies can be tested independently,
-6. measure solution quality rather than assume it.
+3. return results quickly enough for practical Python or API use,
+4. measure solution quality rather than assume it.
 
-The planned solver direction is:
+At a high level, the solver takes the packing inputs, checks the operational constraints, builds a fast valid packing plan, tries a small number of improvements, and returns the best valid result found within the available computational budget.
 
-```text
-Input
-  ↓
-Validate constraints
-  ↓
-Deterministic item ordering
-  ↓
-Candidate carton selection
-  ↓
-3D placement heuristic
-  ↓
-Fast feasible solution
-  ↓
-Optional bounded improvement
-  ↓
-Validate, score and return
+```mermaid
+flowchart TD
+    A[Order Data + Box Catalogue + Packing Rules]
+    B[Validate Constraints]
+    C[Build Fast Valid Packing Plan]
+    D[Try Small Improvements]
+    E[Return Best Valid Result]
+
+    A --> B --> C --> D --> E
 ```
+
+**In simple terms:** inputs → valid packing plan → small improvements → best valid result.
 
 This is still an optimization project. The difference is that we optimize under a practical computational budget rather than require a proof of global optimality for every instance.
 

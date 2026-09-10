@@ -89,7 +89,7 @@ The supplied development sample contains 2,000 masked iHub order request and res
 | --- | --- |
 | Records | 2,000 |
 | Units | mm for dimensions, kg for weight |
-| Candidate cartons | 7 benchmark carton types |
+| Candidate cartons | 6 benchmark carton types |
 | Optimization mode | `bins_number` |
 | Result status | All 2,000 successful |
 | Unpacked items | None in the supplied sample |

@@ -28,12 +28,11 @@ Based on the supplied dataset, README requirements and initial EDA, the MVP solv
 
 ## Supplied Box Catalogue
 
-The current project benchmark uses seven carton types. The catalogue is fixed in the supplied dataset, but the solver should accept it as input so another catalogue can be used later without changing the packing engine.
+The current project benchmark uses six carton types. The catalogue is fixed in the supplied dataset, but the solver should accept it as input so another catalogue can be used later without changing the packing engine.
 
 | Box | Length (mm) | Width (mm) | Height (mm) | Max Weight (kg) |
 |---|---:|---:|---:|---:|
 | Box2 | 220 | 170 | 115 | 20 |
-| Box3 | 270 | 180 | 180 | 20 |
 | Box4 | 340 | 260 | 150 | 20 |
 | Box5 | 340 | 260 | 235 | 20 |
 | Box6 | 340 | 260 | 280 | 20 |

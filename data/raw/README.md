@@ -1,24 +1,27 @@
-# 3D Bin-Packing Sample Dataset (`data_sample_v1.json`)
+# 3D Bin-Packing Benchmark Datasets
 
-Sample dataset for the **NUS Industry 4.0 (i4.0) Master's project** developing a self-built **3D bin-packing / cartonization solution**. Each record is one request/response pair from iHub's existing packing service, provided as reference input/output for the team to benchmark their own solver against.
+Sample datasets for the **NUS Industry 4.0 (i4.0) Master's project** developing a self-built **3D bin-packing / cartonization solution**. Each record is one request/response pair from iHub's existing packing service, provided as reference input/output for the team to benchmark their own solver against.
 
 > **Data source & privacy:** Real iHub order data. `OrderId`, `OrderNo`, and item `Code` values are **masked**. No PII is included.
 
----
+## Dataset Versions
+
+| File | Records | Candidate boxes | Notes |
+| --- | ---: | ---: | --- |
+| `data_sample_v1.json` | 2,000 | 7 | Original benchmark with Box2 to Box9 catalogue including Box3 |
+| `data_samples_v2.json` | 2,000 | 6 | Same order scenarios rerun after Box3 was removed and Box2 length increased |
+
+See [`CHANGELOG.md`](CHANGELOG.md) for the detailed comparison between dataset versions.
 
 ## At a Glance
 
 | Property | Value |
-|---|---|
-| Records | 2,000 |
+| --- | --- |
 | Structure | JSON array; each element = one packing request/response |
 | Top-level keys per record | `input`, `output`, `latency_ms` |
 | Units | Dimensions in **mm**, weight in **kg** |
-| Candidate bins | 7 fixed boxes (`Box2`–`Box9`), identical across all records |
-| Optimization mode | `bins_number` (all records) |
-| Result status | All 2,000 succeeded; `NotPackedItems` empty in every record |
-
----
+| Optimization mode | `bins_number` |
+| Result status | All 2,000 records in both supplied versions succeeded; `NotPackedItems` is empty |
 
 ## Record Shape
 
@@ -30,25 +33,27 @@ Sample dataset for the **NUS Industry 4.0 (i4.0) Master's project** developing a
 }
 ```
 
----
-
 ## `input`
 
 ### `Items.ItemsList[]` — items to pack
+
 | Field | Type | Notes |
-|---|---|---|
+| --- | --- | --- |
 | `Code` | string | Masked item identifier |
-| `Length`, `Width`, `Height` | number | Dimension of items in mm |
-| `Weight` | number | Weight of items in kg |
-| `UOM` | string | Unit of measure: `EA`, `BOX`, `SET`, `PACK`, `BTL`, `PCS` |
-| `VerticalRotation` | int (`1`/`0`) | `1` = item may be laid down / rotated onto its vertical axis; `0` = **must stay upright** (cannot be packed lying down) |
+| `Length`, `Width`, `Height` | number | Item dimensions in mm |
+| `Weight` | number | Item weight in kg |
+| `UOM` | string | Unit of measure such as `EA`, `BOX`, `SET`, `PACK`, `BTL`, `PCS` |
+| `VerticalRotation` | int (`1`/`0`) | `1` = item may be laid down / rotated onto its vertical axis; `0` = must stay upright |
 | `Quantity` | int | Count of this item |
 
 ### `Bins.BinsList[]` — candidate boxes
-Fixed set of 7 boxes (same in every record). `MaxWeight` = 20 kg for all.
+
+The candidate box catalogue is supplied as part of each request and must be treated as configurable solver input rather than a permanent hard-coded list.
+
+#### v1 catalogue
 
 | Code | Length | Width | Height |
-|---|---|---|---|
+| --- | ---: | ---: | ---: |
 | Box2 | 220 | 170 | 115 |
 | Box3 | 270 | 180 | 180 |
 | Box4 | 340 | 260 | 150 |
@@ -57,45 +62,56 @@ Fixed set of 7 boxes (same in every record). `MaxWeight` = 20 kg for all.
 | Box8 | 290 | 180 | 280 |
 | Box9 | 440 | 345 | 280 |
 
-*(mm; MaxWeight 20 kg each)*
+#### v2 catalogue
+
+| Code | Length | Width | Height |
+| --- | ---: | ---: | ---: |
+| Box2 | 270 | 170 | 115 |
+| Box4 | 340 | 260 | 150 |
+| Box5 | 340 | 260 | 235 |
+| Box6 | 340 | 260 | 280 |
+| Box8 | 290 | 180 | 280 |
+| Box9 | 440 | 345 | 280 |
+
+All supplied boxes have `MaxWeight = 20 kg` in both versions.
 
 ### `Bins.Parameters` — packing rules
+
 | Field | Example | Meaning |
-|---|---|---|
-| `BinMaxFillCheckMinItemQty` | 6 | Item-count threshold. If an order has **≤ this many** items, the bin may pack to **100%**. Only when the count is **greater** does `BinMaxFillPct` apply. **Should be configurable.** |
-| `BinMaxFillPct` | 70 | Max volumetric fill (%) allowed for larger orders. **Should be configurable.** |
-| `BinBuffer` | `{Length:0, Width:0, Height:6}` | Clearance reserved inside the bin, in mm. The 6 mm here is **Z-height** headroom for physical packing. **Should be configurable.** |
+| --- | --- | --- |
+| `BinMaxFillCheckMinItemQty` | 6 | Item-count threshold. If an order has six or fewer physical items, the bin may pack to full volume. The fill cap applies only when the count is greater. Should remain configurable. |
+| `BinMaxFillPct` | 70 | Maximum volumetric fill percentage for larger orders. Should remain configurable. |
+| `BinBuffer` | `{Length:0, Width:0, Height:6}` | Clearance reserved inside the bin in mm. The 6 mm value is Z-height headroom. Should remain configurable. |
 
 ### `OptimizationMode`
-Always `bins_number` in this dataset (minimize number of bins). No other modes are relevant here.
 
----
+`bins_number` is used throughout both supplied datasets and represents minimizing the number of bins.
 
 ## `output`
 
 | Field | Type | Notes |
-|---|---|---|
-| `StatusCode` / `StatusMessage` | int / string | `0` / `Success` for all records |
-| `Data.OrderId`, `Data.OrderNo` | — | Echoed from input (masked) |
+| --- | --- | --- |
+| `StatusCode` / `StatusMessage` | int / string | `0` / `Success` for all supplied records |
+| `Data.OrderId`, `Data.OrderNo` | — | Echoed from input |
 | `Data.BinsPacked[]` | array | One entry per box used for the order |
-| `Data.NotPackedItems[]` | array | Items that could not be packed (empty across this dataset) |
+| `Data.NotPackedItems[]` | array | Items that could not be packed; empty in all supplied records |
 
 ### `Data.BinsPacked[]`
-| Field | Type | Notes |
-|---|---|---|
-| `Code` | string | Chosen box (one of Box2–Box9) |
-| `UsedSpace` | number | Volumetric fill of that box (%). Fill limit is governed by the configurable `Parameters` above. |
-| `Items[]` | array | Items assigned to the box. Mirrors input item fields; `VerticalRotation` is returned as boolean (`true`/`false`). |
 
----
+| Field | Type | Notes |
+| --- | --- | --- |
+| `Code` | string | Selected candidate box |
+| `UsedSpace` | number | Volumetric fill of that box (%) |
+| `Items[]` | array | Items assigned to the box; mirrors input item fields and returns `VerticalRotation` as boolean |
 
 ## `latency_ms`
-Full round-trip time of the request (ms).
 
----
+Full round-trip time of the request in milliseconds.
 
 ## Notes for the Project Team
-- Bins and their dimensions are constant across all 2,000 records, so a solver can treat the box catalog as fixed.
-- Every record is a solved, feasible case (all `Success`, nothing left unpacked) — useful as ground-truth targets when comparing box selection and fill against a self-developed solver.
-- Do design your own edge and fail cases as part of the solution
-- `VerticalRotation`, `BinMaxFillCheckMinItemQty`, `BinMaxFillPct`, and `BinBuffer` are the key constraints to reproduce; buffers and fill caps are intended to be configurable.
+
+The two versions intentionally demonstrate why the solver should not assume a fixed catalogue. v2 contains the same 2,000 order and item scenarios as v1 but changes the available boxes. This causes valid reference box selections and utilization values to change without changing the underlying orders.
+
+Every supplied record is a solved, feasible case. These are useful benchmark outputs but should not be treated as proof of mathematical optimality. The team should also design edge cases and failure cases as part of the solution.
+
+`VerticalRotation`, `BinMaxFillCheckMinItemQty`, `BinMaxFillPct`, `BinBuffer`, box dimensions, and box weight limits are the main supplied constraints to reproduce while keeping them configurable.

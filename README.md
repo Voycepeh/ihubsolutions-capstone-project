@@ -107,7 +107,8 @@ See [`data/raw/README.md`](data/raw/README.md) for the dataset specification and
 
 | Artifact | Purpose |
 | --- | --- |
-| [`notebooks/Inital EDA.ipynb`](notebooks/Inital%20EDA.ipynb) | Initial analysis and benchmark understanding |
+| [`notebooks/Inital EDA.ipynb`](notebooks/Inital%20EDA.ipynb) | Initial v1 analysis and benchmark understanding |
+| [`notebooks/Inital EDA v2.ipynb`](notebooks/Inital%20EDA%20v2.ipynb) | Rerun of the initial EDA against the v2 benchmark with chart labels and written insights |
 | [`docs/MVP Plan.md`](docs/MVP%20Plan.md) | Detailed features, architecture, evaluation and sprint plan |
 | [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) | Literature review and solver rationale |
 | [`docs/dataset-specification.md`](docs/dataset-specification.md) | Dataset fields and packing rules |

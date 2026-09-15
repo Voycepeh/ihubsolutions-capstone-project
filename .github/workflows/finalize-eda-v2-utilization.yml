@@ -1,0 +1,40 @@
+name: Finalize EDA v2 utilization
+
+on:
+  push:
+    paths:
+      - '.finalize_eda_v2_utilization_trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refine utilization interpretation and clean temporary files
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p=Path('notebooks/Inital EDA v2.ipynb')
+          nb=json.loads(p.read_text(encoding='utf-8'))
+          cell=next(c for c in nb['cells'] if c.get('id')=='util-gt6-insight')
+          cell['source']=[
+              '**Insight.** There are **973 orders with more than 6 physical items**, producing **1,091 packed cartons** in the reference output. For `Box2`, `Box4`, `Box5`, `Box6`, and `Box8`, the observed maximum utilization stays at or below the configured **70%** threshold. `Box9` is the exception: it reaches **97.1%**, and **183 Box9 uses exceed 70%** within this order-level filtered population. This means the supplied reference outputs do **not** support a claim that the 70% rule is uniformly enforced across every carton. The data suggests that `Box9` may have additional or exception logic in the existing service, but that behavior is not explained by the supplied parameters and should be confirmed with iHub. The unfiltered chart can still legitimately contain values above 70% for orders with 6 items or fewer, where the fill cap is not expected to apply.'
+          ]
+          p.write_text(json.dumps(nb, indent=1, ensure_ascii=False)+'\n', encoding='utf-8')
+          PY
+          rm -f .github/workflows/check-v2-fill-rule.yml .check_v2_fill_rule_trigger
+      - name: Commit final notebook
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/finalize-eda-v2-utilization.yml
+          git rm .finalize_eda_v2_utilization_trigger
+          git add "notebooks/Inital EDA v2.ipynb"
+          git add -u
+          git commit -m "Clarify v2 utilization threshold behavior"
+          git push

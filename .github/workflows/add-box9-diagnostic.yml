@@ -1,0 +1,29 @@
+name: Add Box9 diagnostic
+on:
+  push:
+    paths:
+      - '.github/workflows/add-box9-diagnostic.yml'
+permissions:
+  contents: write
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install nbformat nbconvert ipykernel pandas numpy matplotlib
+      - name: Update notebook
+        run: python scripts/_tmp_add_box9_diagnostic.py
+      - name: Execute notebook
+        run: cd notebooks && jupyter nbconvert --to notebook --execute 'Inital EDA v2.ipynb' --output 'Inital EDA v2.ipynb' --ExecutePreprocessor.timeout=180
+      - name: Commit result
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          rm -f scripts/_tmp_add_box9_diagnostic.py .github/workflows/add-box9-diagnostic.yml
+          git add 'notebooks/Inital EDA v2.ipynb' scripts/_tmp_add_box9_diagnostic.py .github/workflows/add-box9-diagnostic.yml
+          git commit -m 'Add Box9 overfill orders to EDA v2'
+          git push

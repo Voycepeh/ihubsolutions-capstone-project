@@ -1,0 +1,39 @@
+name: Check v2 fill rule
+
+on:
+  push:
+    paths:
+      - '.check_v2_fill_rule_trigger'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect fill rule behavior
+        run: |
+          python - <<'PY'
+          import json
+          from collections import Counter, defaultdict
+          raw=json.load(open('data/raw/data_samples_v2.json', encoding='utf-8'))
+          threshold=raw[0]['input']['Bins']['Parameters']['BinMaxFillCheckMinItemQty']
+          limit=raw[0]['input']['Bins']['Parameters']['BinMaxFillPct']
+          rows=[]
+          for rec in raw:
+              order_qty=sum(i['Quantity'] for i in rec['input']['Items']['ItemsList'])
+              for b in rec['output']['Data']['BinsPacked']:
+                  bin_qty=sum(i['Quantity'] for i in b['Items'])
+                  rows.append((rec['input']['OrderId'],order_qty,b['Code'],bin_qty,float(b['UsedSpace'])))
+          order_gt=[r for r in rows if r[1]>threshold]
+          bin_gt=[r for r in rows if r[3]>threshold]
+          print('threshold',threshold,'limit',limit)
+          print('all cartons',len(rows))
+          print('order>6 cartons',len(order_gt),'above70',sum(r[4]>limit for r in order_gt),'max',max(r[4] for r in order_gt))
+          print('bin>6 cartons',len(bin_gt),'above70',sum(r[4]>limit for r in bin_gt),'max',max(r[4] for r in bin_gt))
+          print('order>6 above70 split by bin_qty',Counter(r[3] for r in order_gt if r[4]>limit))
+          print('examples order>6 above70:')
+          for r in [r for r in order_gt if r[4]>limit][:20]: print(r)
+          bybox=defaultdict(list)
+          for r in bin_gt: bybox[r[2]].append(r[4])
+          print('bin>6 max by box', {k:max(v) for k,v in sorted(bybox.items())})
+          PY

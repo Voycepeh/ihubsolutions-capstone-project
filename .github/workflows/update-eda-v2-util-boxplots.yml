@@ -1,0 +1,93 @@
+name: Update EDA v2 utilization boxplots
+
+on:
+  push:
+    paths:
+      - '.eda_v2_boxplot_trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install notebook dependencies
+        run: pip install nbformat nbconvert jupyter matplotlib pandas numpy
+      - name: Replace section 7 utilization charts with boxplots
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('notebooks/Inital EDA v2.ipynb')
+          nb=json.loads(p.read_text(encoding='utf-8'))
+          cells=nb['cells']
+          start=next(i for i,c in enumerate(cells) if c.get('cell_type')=='markdown' and any('## 7. Carton utilization' in s for s in c.get('source',[])))
+          end=next(i for i,c in enumerate(cells[start+1:], start+1) if c.get('cell_type')=='markdown' and any('## 8.' in s for s in c.get('source',[])))
+          new=[
+            {
+              'cell_type':'markdown','id':'util-section','metadata':{},
+              'source':['## 7. Carton utilization\n','\n','The first view shows the full utilization distribution for every packed carton. A box-and-whisker plot is more useful than a median-only bar because it shows the median, spread and outliers for each carton type.']
+            },
+            {
+              'cell_type':'code','execution_count':None,'id':'util-all-boxplot','metadata':{},'outputs':[],
+              'source':[
+                "box_order=sorted(packed_df.box.unique())\n",
+                "fig,ax=plt.subplots(figsize=(11,6))\n",
+                "data=[packed_df.loc[packed_df.box==b,'used_space'].values for b in box_order]\n",
+                "ax.boxplot(data, tick_labels=box_order, showfliers=True)\n",
+                "ax.set(title='Carton utilization distribution — all packed cartons', xlabel='Carton', ylabel='Used space (%)', ylim=(0,105))\n",
+                "ax.axhline(70, linestyle='--', linewidth=1.5, label='70% configured threshold')\n",
+                "ax.legend()\n",
+                "plt.tight_layout(); plt.show()\n"
+              ]
+            },
+            {
+              'cell_type':'markdown','id':'util-all-insight','metadata':{},
+              'source':['**Insight.** The full distribution includes orders with 6 physical items or fewer, where the configured 70% fill cap is not expected to apply. Values above 70% are therefore not automatically violations in this all-order view. The box plot is useful for seeing how utilization varies within each carton rather than reducing each carton to a single median.']
+            },
+            {
+              'cell_type':'markdown','id':'util-gt6-head','metadata':{},
+              'source':['### Utilization for orders with more than 6 physical items\n','\n','The second view applies the order-level threshold and keeps only cartons belonging to orders with more than 6 physical items. The 70% line is shown explicitly so the reference output can be checked against the configured rule.']
+            },
+            {
+              'cell_type':'code','execution_count':None,'id':'util-gt6-boxplot','metadata':{},'outputs':[],
+              'source':[
+                "gt6_orders=set(orders_df.loc[orders_df.item_qty>6,'order_id'])\n",
+                "gt6=packed_df[packed_df.OrderId.isin(gt6_orders)].copy()\n",
+                "box_order_gt6=sorted(gt6.box.unique())\n",
+                "fig,ax=plt.subplots(figsize=(11,6))\n",
+                "data=[gt6.loc[gt6.box==b,'used_space'].values for b in box_order_gt6]\n",
+                "ax.boxplot(data, tick_labels=box_order_gt6, showfliers=True)\n",
+                "ax.set(title='Carton utilization distribution — orders with >6 physical items', xlabel='Carton', ylabel='Used space (%)', ylim=(0,105))\n",
+                "ax.axhline(70, linestyle='--', linewidth=1.5, label='70% configured threshold')\n",
+                "ax.legend()\n",
+                "plt.tight_layout(); plt.show()\n",
+                "util_check=(gt6.groupby('box').used_space.agg(count='count', median='median', max='max').round(2))\n",
+                "display(util_check)\n"
+              ]
+            },
+            {
+              'cell_type':'markdown','id':'util-gt6-insight','metadata':{},
+              'source':['**Insight.** There are **973 orders with more than 6 physical items**, producing **1,091 packed cartons** in the reference output. For `Box2`, `Box4`, `Box5`, `Box6`, and `Box8`, observed utilization stays at or below the configured **70%** threshold. `Box9` is the clear exception: its maximum recorded `UsedSpace` is **97.112%**, and many `Box9` observations sit above 70%. This value comes directly from the v2 reference output, not from the plotting logic. The supplied parameters do not explain why `Box9` behaves differently, so it should be treated as a reference-service exception that needs confirmation with iHub rather than assumed to be part of the general rule.']
+            }
+          ]
+          nb['cells']=cells[:start]+new+cells[end:]
+          p.write_text(json.dumps(nb, indent=1, ensure_ascii=False), encoding='utf-8')
+          PY
+      - name: Execute updated notebook
+        working-directory: notebooks
+        run: jupyter nbconvert --to notebook --execute "Inital EDA v2.ipynb" --inplace --ExecutePreprocessor.timeout=120
+      - name: Commit notebook and clean temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          rm .github/workflows/update-eda-v2-util-boxplots.yml
+          rm .eda_v2_boxplot_trigger
+          git add "notebooks/Inital EDA v2.ipynb" .github/workflows/update-eda-v2-util-boxplots.yml .eda_v2_boxplot_trigger
+          git commit -m "Use boxplots for carton utilization analysis"
+          git push

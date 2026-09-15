@@ -9,12 +9,19 @@ permissions:
   contents: write
 
 jobs:
-  rebuild:
+  execute:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Rebuild executed notebook
-        run: cat .eda_v2_chunks/part_* | base64 -d > "notebooks/Inital EDA v2.ipynb"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install notebook dependencies
+        run: python -m pip install --upgrade pip numpy pandas matplotlib nbconvert jupyter
+      - name: Execute v2 EDA notebook
+        env:
+          MPLBACKEND: Agg
+        run: jupyter nbconvert --to notebook --execute --inplace "notebooks/Inital EDA v2.ipynb" --ExecutePreprocessor.timeout=180
       - name: Commit executed outputs
         run: |
           git config user.name "github-actions[bot]"

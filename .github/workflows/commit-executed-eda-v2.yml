@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Rebuild executed notebook
-        run: cat .eda_v2_chunks/part_* > "notebooks/Inital EDA v2.ipynb"
+        run: cat .eda_v2_chunks/part_* | base64 -d > "notebooks/Inital EDA v2.ipynb"
       - name: Commit executed outputs
         run: |
           git config user.name "github-actions[bot]"

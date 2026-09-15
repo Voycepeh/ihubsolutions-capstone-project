@@ -1,0 +1,152 @@
+name: Update EDA v2 utilization
+
+on:
+  push:
+    paths:
+      - '.eda_v2_utilization_trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install notebook dependencies
+        run: pip install numpy pandas matplotlib nbconvert ipykernel
+      - name: Add >6 item utilization analysis
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          nb_path = Path('notebooks/Inital EDA v2.ipynb')
+          data_path = Path('data/raw/data_samples_v2.json')
+          nb = json.loads(nb_path.read_text(encoding='utf-8'))
+          raw = json.loads(data_path.read_text(encoding='utf-8'))
+
+          # Remove an earlier generated copy if this workflow is ever rerun.
+          generated_ids = {'util-gt6-heading', 'util-gt6-chart', 'util-gt6-insight'}
+          nb['cells'] = [c for c in nb['cells'] if c.get('id') not in generated_ids]
+
+          params = raw[0]['input']['Bins']['Parameters']
+          qty_threshold = params['BinMaxFillCheckMinItemQty']
+          fill_limit = params['BinMaxFillPct']
+
+          order_qty = {}
+          packed_rows = []
+          for rec in raw:
+              order_id = rec['input']['OrderId']
+              qty = sum(i['Quantity'] for i in rec['input']['Items']['ItemsList'])
+              order_qty[order_id] = qty
+              for b in rec['output']['Data']['BinsPacked']:
+                  packed_rows.append((order_id, b['Code'], float(b['UsedSpace'])))
+
+          gt_ids = {oid for oid, qty in order_qty.items() if qty > qty_threshold}
+          le_ids = {oid for oid, qty in order_qty.items() if qty <= qty_threshold}
+          gt_rows = [r for r in packed_rows if r[0] in gt_ids]
+          le_rows = [r for r in packed_rows if r[0] in le_ids]
+          violations = [r for r in gt_rows if r[2] > fill_limit + 1e-9]
+          le_above = [r for r in le_rows if r[2] > fill_limit + 1e-9]
+          max_gt = max((r[2] for r in gt_rows), default=float('nan'))
+
+          by_box = {}
+          for _, box, used in gt_rows:
+              by_box.setdefault(box, []).append(used)
+          max_desc = ', '.join(f'{box} {max(vals):.1f}%' for box, vals in sorted(by_box.items()))
+
+          section_idx = next(i for i, c in enumerate(nb['cells']) if c.get('cell_type') == 'markdown' and '## 7. Carton utilization' in ''.join(c.get('source', [])))
+          insert_idx = None
+          for i in range(section_idx + 1, len(nb['cells'])):
+              c = nb['cells'][i]
+              text = ''.join(c.get('source', []))
+              if c.get('cell_type') == 'markdown' and text.startswith('## '):
+                  break
+              if c.get('cell_type') == 'markdown' and '**Insight.**' in text:
+                  insert_idx = i + 1
+                  break
+          if insert_idx is None:
+              raise RuntimeError('Could not find section 7 insight cell')
+
+          heading = {
+              'cell_type': 'markdown',
+              'id': 'util-gt6-heading',
+              'metadata': {},
+              'source': [
+                  '### Utilization when the 70% fill cap applies\n',
+                  '\n',
+                  f'The {fill_limit}% maximum fill rule only applies when an order contains more than {qty_threshold} physical items. This view filters to those orders so the threshold can be checked directly.'
+              ]
+          }
+
+          code = {
+              'cell_type': 'code',
+              'execution_count': None,
+              'id': 'util-gt6-chart',
+              'metadata': {},
+              'outputs': [],
+              'source': [
+                  'qty_threshold = params["BinMaxFillCheckMinItemQty"]\n',
+                  'fill_limit = params["BinMaxFillPct"]\n',
+                  'eligible_order_ids = orders_df.loc[orders_df.item_qty > qty_threshold, "order_id"]\n',
+                  'gt6_packed = packed_df[packed_df.OrderId.isin(eligible_order_ids)].copy()\n',
+                  'gt6_summary = gt6_packed.groupby("box").used_space.agg(["count", "median", "max"]).round(2)\n',
+                  '\n',
+                  'fig, ax = plt.subplots(figsize=(10, 5))\n',
+                  'bars = ax.bar(gt6_summary.index, gt6_summary["max"])\n',
+                  'ax.axhline(fill_limit, linestyle="--", linewidth=1.5, label=f"Fill cap = {fill_limit}%")\n',
+                  'ax.set(title=f"Maximum carton utilization for orders with more than {qty_threshold} items", xlabel="Carton", ylabel="Maximum used space (%)", ylim=(0, 100))\n',
+                  'ax.bar_label(bars, labels=[f"{v:.1f}%" for v in gt6_summary["max"]], padding=3)\n',
+                  'ax.legend()\n',
+                  'plt.tight_layout(); plt.show()\n',
+                  'display(gt6_summary)\n',
+                  'violations = gt6_packed[gt6_packed.used_space > fill_limit]\n',
+                  'print(f"Orders with > {qty_threshold} items: {len(eligible_order_ids):,}")\n',
+                  'print(f"Packed cartons checked: {len(gt6_packed):,}")\n',
+                  'print(f"Cartons above {fill_limit}%: {len(violations):,}")\n'
+              ]
+          }
+
+          if violations:
+              compliance_sentence = f'However, **{len(violations)} packed cartons exceed the {fill_limit}% threshold**, so those cases should be investigated against the precise reference-service rule.'
+          else:
+              compliance_sentence = f'**No packed carton exceeds the {fill_limit}% threshold** among these orders; the highest observed utilization is **{max_gt:.1f}%**.'
+
+          if le_above:
+              low_sentence = f'In contrast, **{len(le_above)} carton uses above {fill_limit}% occur in orders with {qty_threshold} items or fewer**, where the fill cap does not apply.'
+          else:
+              low_sentence = f'No carton use above {fill_limit}% appears in the {qty_threshold}-items-or-fewer group either.'
+
+          insight_text = (
+              f'**Insight.** There are **{len(gt_ids):,} orders with more than {qty_threshold} physical items**, producing **{len(gt_rows):,} packed cartons** in the reference output. '
+              + compliance_sentence + ' ' + low_sentence + ' '
+              + f'The per-carton maximums in the filtered view are: {max_desc}. '
+              + 'This separation is important: the all-order utilization chart can legitimately show values above 70% because smaller orders are allowed to use more of a carton rather than being split unnecessarily.'
+          )
+          insight = {
+              'cell_type': 'markdown',
+              'id': 'util-gt6-insight',
+              'metadata': {},
+              'source': [insight_text]
+          }
+
+          nb['cells'][insert_idx:insert_idx] = [heading, code, insight]
+          nb_path.write_text(json.dumps(nb, indent=1, ensure_ascii=False) + '\n', encoding='utf-8')
+          print(insight_text)
+          PY
+      - name: Execute updated notebook
+        working-directory: notebooks
+        run: jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=180 "Inital EDA v2.ipynb"
+      - name: Commit notebook and clean temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/update-eda-v2-utilization.yml
+          git rm .eda_v2_utilization_trigger
+          git add "notebooks/Inital EDA v2.ipynb"
+          git commit -m "Add capped utilization analysis to v2 EDA"
+          git push

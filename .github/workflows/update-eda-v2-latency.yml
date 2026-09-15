@@ -1,0 +1,79 @@
+name: Update EDA v2 latency
+
+on:
+  push:
+    paths:
+      - '.eda_v2_latency_trigger'
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install notebook dependencies
+        run: pip install pandas numpy matplotlib nbconvert nbformat jupyter
+      - name: Replace section 9 with order-level latency analysis
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p=Path('notebooks/Inital EDA v2.ipynb')
+          nb=json.loads(p.read_text(encoding='utf-8'))
+          cells=nb['cells']
+          start=next(i for i,c in enumerate(cells) if c.get('cell_type')=='markdown' and any('## 9.' in s for s in c.get('source',[])))
+          end=next((i for i in range(start+1,len(cells)) if cells[i].get('cell_type')=='markdown' and any(s.startswith('## 10.') for s in cells[i].get('source',[]))), len(cells))
+          new=[]
+          new.append({
+            'cell_type':'markdown','metadata':{},'source':[
+              '## 9. Order processing time vs packing complexity\n','\n',
+              '`latency_ms` is recorded once per complete request/response record, so it represents the **total processing time for the full order**, not line-by-line item latency. Because the solver receives the full order, candidate cartons and constraints before solving, the useful benchmark is how end-to-end runtime changes as order complexity increases.\n'
+            ]
+          })
+          new.append({
+            'cell_type':'code','execution_count':None,'metadata':{},'outputs':[],'source':[
+              "latency_plot = orders_df.copy()\n",
+              "latency_plot['packing_type'] = np.where(latency_plot.bins_used == 1, 'Single carton', 'Multi carton')\n",
+              "fig, ax = plt.subplots(figsize=(11,6))\n",
+              "for label, grp in latency_plot.groupby('packing_type'):\n",
+              "    ax.scatter(grp.item_qty, grp.latency_ms, alpha=0.55, s=35, label=f'{label} (n={len(grp):,})')\n",
+              "ax.set(title='Total order processing time vs physical item count', xlabel='Physical items in order', ylabel='Total order latency (ms)')\n",
+              "ax.legend()\n",
+              "plt.tight_layout(); plt.show()\n"
+            ]
+          })
+          new.append({
+            'cell_type':'markdown','metadata':{},'source':[
+              '**Insight.** Each point represents one complete order run. This view lets us compare end-to-end processing time directly against the number of physical items in the order, while separating single-carton and multi-carton outcomes. Multi-carton orders are expected to be more complex, but the chart should be used to verify whether that actually translates into higher observed latency rather than assuming it.\n'
+            ]
+          })
+          new.append({
+            'cell_type':'code','execution_count':None,'metadata':{},'outputs':[],'source':[
+              "summary = (latency_plot.groupby('packing_type').latency_ms.agg(orders='count', median_ms='median', mean_ms='mean', p95_ms=lambda s: s.quantile(0.95), max_ms='max').round(2))\n",
+              "display(summary)\n"
+            ]
+          })
+          new.append({
+            'cell_type':'markdown','metadata':{},'source':[
+              '**Benchmark interpretation.** The median and p95 values above are the most useful reference points for our own solver. Later we can compare our full-order runtime at similar order sizes and carton counts against these reference-service timings. This is more meaningful for our batch-style use case than treating latency as an item-level metric.\n'
+            ]
+          })
+          nb['cells']=cells[:start]+new+cells[end:]
+          p.write_text(json.dumps(nb, ensure_ascii=False, indent=1), encoding='utf-8')
+          PY
+      - name: Execute updated notebook
+        working-directory: notebooks
+        run: jupyter nbconvert --to notebook --execute "Inital EDA v2.ipynb" --output "Inital EDA v2.ipynb" --ExecutePreprocessor.timeout=180
+      - name: Commit notebook and clean temporary workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/update-eda-v2-latency.yml .eda_v2_latency_trigger
+          git add "notebooks/Inital EDA v2.ipynb"
+          git commit -m "Refine v2 EDA order latency analysis"
+          git push

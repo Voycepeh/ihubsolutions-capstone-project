@@ -44,7 +44,7 @@ For multiple items, the solver must determine whether they can occupy different 
 
 ## Configurable Packing Rules
 
-The box catalogue is input to the solver. The seven cartons in the supplied iHub data are benchmark defaults, not hard coded solver limits.
+The box catalogue is input to the solver and must not be hard coded. The supplied benchmark has already changed between dataset versions: v1 contains seven candidate cartons, while v2 contains six after Box3 was removed and Box2 was lengthened.
 
 The packing rules are also configurable. Current benchmark defaults include:
 
@@ -83,18 +83,25 @@ See [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literatu
 
 ## Reference Dataset
 
-The supplied development sample contains 2,000 masked iHub order request and response pairs.
+The supplied development benchmark contains 2,000 masked iHub order request and response pairs. Two versions are retained under [`data/raw`](data/raw/) so catalogue changes can be compared without losing the original reference run.
+
+| Version | Records | Candidate cartons | Notes |
+| --- | ---: | ---: | --- |
+| v1 | 2,000 | 7 | Original catalogue |
+| v2 | 2,000 | 6 | Same orders rerun after Box3 removal and Box2 resize |
+
+Across both versions:
 
 | Property | Value |
 | --- | --- |
-| Records | 2,000 |
 | Units | mm for dimensions, kg for weight |
-| Candidate cartons | 6 benchmark carton types |
 | Optimization mode | `bins_number` |
 | Result status | All 2,000 successful |
 | Unpacked items | None in the supplied sample |
 
 The historical outputs are useful for comparing carton count, carton choice, utilization and latency. The team should also create edge cases and failure cases because the supplied sample contains only successful packings.
+
+See [`data/raw/README.md`](data/raw/README.md) for the dataset specification and [`data/raw/CHANGELOG.md`](data/raw/CHANGELOG.md) for version differences.
 
 ## Key Project Files
 
@@ -104,5 +111,6 @@ The historical outputs are useful for comparing carton count, carton choice, uti
 | [`docs/MVP Plan.md`](docs/MVP%20Plan.md) | Detailed features, architecture, evaluation and sprint plan |
 | [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) | Literature review and solver rationale |
 | [`docs/dataset-specification.md`](docs/dataset-specification.md) | Dataset fields and packing rules |
+| [`data/raw/CHANGELOG.md`](data/raw/CHANGELOG.md) | Raw benchmark dataset version history |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | Team workflow |
 | [`AGENTS.md`](AGENTS.md) | Instructions for AI agents working in the repository |

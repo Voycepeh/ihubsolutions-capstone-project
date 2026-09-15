@@ -1,0 +1,26 @@
+name: Commit executed EDA v2
+
+on:
+  push:
+    paths:
+      - '.eda_v2_chunks/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild executed notebook
+        run: cat .eda_v2_chunks/part_* > "notebooks/Inital EDA v2.ipynb"
+      - name: Commit executed outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "notebooks/Inital EDA v2.ipynb"
+          git rm -r .eda_v2_chunks
+          git rm .github/workflows/commit-executed-eda-v2.yml
+          git commit -m "Commit executed v2 EDA outputs"
+          git push

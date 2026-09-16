@@ -6,7 +6,7 @@ NUS Industry 4.0 Master's capstone project developing a reusable 3D bin packing 
 
 Build a lightweight Python solver that accepts **order data**, a **configurable box catalogue** and **configurable packing rules**, then returns a valid packing result while minimizing the number of cartons used.
 
-The supplied 2,000 iHub request and response records are used as a benchmark. The goal is not to reproduce every historical output exactly or guarantee a mathematically global optimum for every 3D packing problem. The goal is to build a practical heuristic solver that is fast, explainable and measurable.
+The supplied iHub request and response records are used as a benchmark. The goal is not to reproduce every historical output exactly or guarantee a mathematically global optimum for every 3D packing problem. The goal is to build a practical heuristic solver that is fast, explainable and measurable.
 
 The Python library is the MVP. FastAPI can later be added as a thin service layer over the same packing engine.
 
@@ -34,23 +34,24 @@ flowchart LR
     B[Normalize and Validate]
     C[Feasibility Filter]
     D[Single Carton Solver]
-    E[Multi Carton Solver]
-    F[Bounded Improvement]
-    G[Independent Validation]
-    H[Result]
+    E[EMS Best Fit XYZ Engine]
+    F[Multi Carton Solver]
+    G[Bounded Improvement]
+    H[Independent Validation]
+    I[Result]
 
-    A --> B --> C --> D
-    D -->|one carton found| F
-    D -->|no one carton solution| E --> F
-    F --> G --> H
+    A --> B --> C --> D --> E
+    E -->|one carton found| G
+    E -->|no one carton solution| F --> G
+    G --> H --> I
 
     classDef focal fill:#fff4ef,stroke:#eb6c36,stroke-width:2px,color:#2d3142;
     classDef standard fill:#ffffff,stroke:#2d3142,stroke-width:1px,color:#2d3142;
     classDef input fill:#f3f5f7,stroke:#9aa1ac,stroke-width:1px,color:#2d3142;
 
-    class A focal;
-    class B,C,D,E,F,G standard;
-    class H input;
+    class A,E focal;
+    class B,C,D,F,G,H standard;
+    class I input;
 ```
 
 ### 1. Normalize and Validate
@@ -67,21 +68,34 @@ Passing these checks does not prove that all items fit together. It only means t
 
 Because minimizing carton count is the primary objective, the solver tries to pack the whole order into one carton first. Viable cartons are attempted from smallest to largest.
 
-The core XYZ placement engine uses legal item orientations and a small set of meaningful candidate positions rather than scanning arbitrary coordinates. Candidate points begin at `(0, 0, 0)` and new points are created from the positive X, Y and Z faces of successfully placed items.
+### 4. EMS Best Fit XYZ Engine
 
-Every candidate placement must remain inside the carton and must not overlap an existing item.
+The selected V1 XYZ algorithm is an **Empty Maximal Space based deterministic Best Fit heuristic**.
 
-### 4. Multi Carton Solver
+The empty carton begins as one rectangular empty space. For each physical item the solver:
 
-If no one carton solution exists, the solver constructs a multiple carton plan. Difficult items are handled first, existing open cartons are reused where the full XYZ placement still works, and a new carton is opened only when required.
+1. generates the item's legal orientations,
+2. checks meaningful corner or extreme point positions inside retained empty spaces,
+3. rejects out of bounds or colliding placements,
+4. scores valid candidates by compactness and low placement,
+5. places the best deterministic candidate,
+6. updates the remaining empty spaces,
+7. removes duplicate, contained or unusable spaces,
+8. repeats for the next item.
 
-### 5. Bounded Improvement
+This avoids scanning arbitrary XYZ coordinates and keeps the geometric search understandable and bounded.
+
+### 5. Multi Carton Solver
+
+If no one carton solution exists, the solver constructs a multiple carton plan. Difficult items are handled first, existing open cartons are reused where a full EMS repack still succeeds, and a new carton is opened only when required.
+
+### 6. Bounded Improvement
 
 Once a valid plan exists, a small deterministic set of alternative item orderings or carton elimination attempts can be tested while runtime remains.
 
 The solver always retains the best known valid plan. Improvement is never allowed to turn a working plan into an invalid result.
 
-### 6. Independent Validation
+### 7. Independent Validation
 
 The final result is checked independently from the solver that created it. The validator confirms item accounting, legal orientations, carton boundaries, non overlap, weight, fill and buffer compliance before success is returned.
 
@@ -103,10 +117,11 @@ For multiple items, the solver must determine whether they can occupy different 
 | `orientation.py` | Legal item orientations |
 | `feasibility.py` | Cheap carton pruning |
 | `geometry.py` | Bounds and collision primitives |
-| `placement.py` | One carton XYZ placement engine |
+| `spaces.py` | EMS creation, update, pruning and candidate positions |
+| `placement.py` | Deterministic EMS Best Fit XYZ placement |
 | `single_box.py` | Smallest valid one carton search |
 | `multi_box.py` | Multiple carton construction |
-| `improve.py` | Runtime bounded improvement |
+| `improve.py` | Runtime bounded deterministic improvement |
 | `validate.py` | Independent final plan validation |
 | `result.py` | Stable serializable output |
 
@@ -116,7 +131,9 @@ The module contracts and their required unit tests are defined in [`src/PRODUCT_
 
 Unit tests are part of the implementation of each module, not a final cleanup step.
 
-A component is only ready for the next development phase when its functional contract and tests pass. The normal CI suite should cover pure unit tests, component tests, end to end solver tests and regression fixtures. Historical iHub dataset benchmarking should run separately because it measures solution quality and runtime rather than basic correctness.
+A component is only ready for the next development phase when its functional contract and tests pass. EMS management is tested separately from placement so empty space splitting and pruning can be verified without relying on the full solver.
+
+The normal CI suite should cover pure unit tests, component tests, end to end solver tests and regression fixtures. Historical iHub dataset benchmarking should run separately because it measures solution quality and runtime rather than basic correctness.
 
 The final validator is intentionally independent from the placement heuristic so a bug in the solver cannot silently approve its own invalid geometry.
 
@@ -136,9 +153,9 @@ The optimization priority is:
 
 ## Configurable Packing Rules
 
-The box catalogue is input to the solver and must not be hard coded. The supplied benchmark has already changed between dataset versions: v1 contains seven candidate cartons, while v2 contains six after Box3 was removed and Box2 was lengthened.
+The box catalogue is input to the solver and must not be hard coded. The supplied benchmark has already changed between dataset versions, so carton definitions belong in input rather than solver code.
 
-The packing rules are also configurable. Current benchmark defaults include:
+Current benchmark defaults include:
 
 | Rule | Default |
 | --- | --- |
@@ -151,39 +168,19 @@ The packing rules are also configurable. Current benchmark defaults include:
 
 Under the current fill rule, orders with six or fewer physical items may use up to full carton volume. Orders with more than six physical items are limited to 70% volumetric fill per carton. Both values remain configurable.
 
-## MVP Solver Capabilities
-
-The solver should minimize carton count as the primary objective, support configurable box catalogues and packing rules, respect dimensions, permitted orientations, weight, buffer and fill constraints, handle quantity as physical items, support single and multiple carton packing, report unpacked items, return explicit XYZ placements, independently validate successful results, and expose runtime for benchmarking.
-
 ## Optimization Approach
 
-Three dimensional bin packing is computationally difficult. Exact methods exist, but the literature also contains established constructive heuristics, local search, tabu search and geometric placement heuristics.
+Three dimensional bin packing is computationally difficult. Exact methods exist, but this project deliberately uses a lightweight heuristic under a practical runtime budget.
 
-This project therefore uses a **lightweight deterministic heuristic approach**. It optimizes carton count under a practical computational budget rather than requiring proof of global optimality for every instance.
+V1 uses EMS based deterministic Best Fit placement for axis aligned cuboids. More complex techniques such as randomized multi start search, simulated annealing, layer backtracking, parallel workers, support ratio constraints or voxel based packing are deferred until benchmark evidence shows a real need.
 
-The XYZ engine follows a corner or extreme point style placement concept. It evaluates legal orientations at a small collection of candidate positions created from already placed cuboids. This makes the geometric search understandable and bounded while still testing actual physical placement rather than relying on volume alone.
-
-Solution quality will be measured rather than assumed. The main evaluation areas are feasibility, carton count, utilization, constraint compliance and runtime. The historical iHub outputs are a benchmark rather than mathematical ground truth.
+This keeps the first implementation explainable and testable while leaving a clear escalation path if difficult orders expose weaknesses.
 
 See [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) for the literature review and design rationale.
 
 ## Reference Dataset
 
-The supplied development benchmark contains 2,000 masked iHub order request and response pairs. Two versions are retained under [`data/raw`](data/raw/) so catalogue changes can be compared without losing the original reference run.
-
-| Version | Records | Candidate cartons | Notes |
-| --- | ---: | ---: | --- |
-| v1 | 2,000 | 7 | Original catalogue |
-| v2 | 2,000 | 6 | Same orders rerun after Box3 removal and Box2 resize |
-
-Across both versions:
-
-| Property | Value |
-| --- | --- |
-| Units | mm for dimensions, kg for weight |
-| Optimization mode | `bins_number` |
-| Result status | All 2,000 successful |
-| Unpacked items | None in the supplied sample |
+The supplied development benchmark contains masked iHub order request and response pairs. Two versions are retained under [`data/raw`](data/raw/) so catalogue changes can be compared without losing the original reference run.
 
 The historical outputs are useful for comparing carton count, carton choice, utilization and latency. The team should also create edge cases and failure cases because the supplied sample contains only successful packings.
 
@@ -195,7 +192,7 @@ See [`data/raw/README.md`](data/raw/README.md) for the dataset specification and
 | --- | --- |
 | [`src/PRODUCT_SPEC.md`](src/PRODUCT_SPEC.md) | Functional source of truth for modules, solver behavior, tests and acceptance gates |
 | [`notebooks/Inital EDA.ipynb`](notebooks/Inital%20EDA.ipynb) | Initial v1 analysis and benchmark understanding |
-| [`notebooks/Inital EDA v2.ipynb`](notebooks/Inital%20EDA%20v2.ipynb) | Rerun of the initial EDA against the v2 benchmark with chart labels and written insights |
+| [`notebooks/Inital EDA v2.ipynb`](notebooks/Inital%20EDA%20v2.ipynb) | Rerun of the initial EDA against the v2 benchmark |
 | [`docs/MVP Plan.md`](docs/MVP%20Plan.md) | Higher level project features, architecture, evaluation and sprint plan |
 | [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) | Literature review and solver rationale |
 | [`docs/dataset-specification.md`](docs/dataset-specification.md) | Dataset fields and packing rules |

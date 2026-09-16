@@ -14,6 +14,7 @@ tests/
   test_geometry.py
   test_spaces.py
   test_placement.py
+  test_strategies.py
   test_single_box.py
   test_multi_box.py
   test_improve.py
@@ -27,10 +28,13 @@ tests/
 1. Every new solver module must be introduced with its unit tests.
 2. Geometry tests should use small constructed cases where the expected answer can be reasoned about manually.
 3. EMS behavior must be tested independently from placement behavior: initial space creation, splitting, duplicate removal, containment pruning, fit based pruning, candidate generation and configured space caps.
-4. A successful packing result must always pass the independent validator.
-5. Regression fixtures should be added whenever a bug is found so the same behavior cannot silently return.
-6. Historical iHub dataset benchmarking should remain separate from normal unit tests because benchmark comparison measures performance and solution quality rather than basic correctness.
-7. Tests should remain deterministic. Randomized search is outside the initial MVP.
+4. First Fit and Best Fit must use the same ordered candidate generator and the same geometry and business constraints.
+5. First Fit tests must prove that search stops at the first valid candidate.
+6. Best Fit tests must prove that all available valid candidates within the configured bounds are considered before selection.
+7. A successful packing result must always pass the independent validator.
+8. Regression fixtures should be added whenever a bug is found so the same behavior cannot silently return.
+9. Historical iHub dataset benchmarking should remain separate from normal unit tests because benchmark comparison measures performance and solution quality rather than basic correctness.
+10. Tests should remain deterministic. Randomized search is outside the initial MVP.
 
 ## Required Early Geometry Fixtures
 
@@ -40,4 +44,6 @@ A `20 x 20 x 20` carton containing one `30 x 10 x 20` item must fail because no 
 
 A constructed EMS fixture must place one cuboid into an empty carton, update the remaining empty spaces, remove contained or duplicate spaces, and preserve at least one valid region for a second known item.
 
-These fixtures are intended to make the XYZ solver understandable before more complicated benchmark orders are introduced.
+A strategy fixture must expose more than one valid candidate so First Fit can be shown to stop at the first candidate while Best Fit evaluates the same candidates and may choose a different placement.
+
+These fixtures are intended to make the XYZ solver and the First Fit versus Best Fit tradeoff understandable before more complicated benchmark orders are introduced.

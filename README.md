@@ -26,7 +26,7 @@ result = solve_order(
 )
 ```
 
-Internally, the solver is deliberately modular so each part can be developed and unit tested independently.
+Internally, the solver is modular so each part can be developed and unit tested independently.
 
 ```mermaid
 flowchart LR
@@ -34,24 +34,30 @@ flowchart LR
     B[Normalize and Validate]
     C[Feasibility Filter]
     D[Single Carton Solver]
-    E[EMS Best Fit XYZ Engine]
-    F[Multi Carton Solver]
-    G[Bounded Improvement]
-    H[Independent Validation]
-    I[Result]
+    E[Shared EMS XYZ Engine]
+    F{Placement Strategy}
+    G[First Fit]
+    H[Best Fit]
+    I[Multi Carton Solver]
+    J[Independent Validation]
+    K[Result]
 
-    A --> B --> C --> D --> E
-    E -->|one carton found| G
-    E -->|no one carton solution| F --> G
-    G --> H --> I
+    A --> B --> C --> D --> E --> F
+    F --> G
+    F --> H
+    G -->|one carton found| J
+    H -->|one carton found| J
+    G -->|no one carton solution| I
+    H -->|no one carton solution| I
+    I --> J --> K
 
     classDef focal fill:#fff4ef,stroke:#eb6c36,stroke-width:2px,color:#2d3142;
     classDef standard fill:#ffffff,stroke:#2d3142,stroke-width:1px,color:#2d3142;
     classDef input fill:#f3f5f7,stroke:#9aa1ac,stroke-width:1px,color:#2d3142;
 
-    class A,E focal;
-    class B,C,D,F,G,H standard;
-    class I input;
+    class A,F focal;
+    class B,C,D,E,G,H,I,J standard;
+    class K input;
 ```
 
 ### 1. Normalize and Validate
@@ -68,36 +74,65 @@ Passing these checks does not prove that all items fit together. It only means t
 
 Because minimizing carton count is the primary objective, the solver tries to pack the whole order into one carton first. Viable cartons are attempted from smallest to largest.
 
-### 4. EMS Best Fit XYZ Engine
+### 4. Shared EMS XYZ Engine
 
-The selected V1 XYZ algorithm is an **Empty Maximal Space based deterministic Best Fit heuristic**.
+The geometric engine uses **Empty Maximal Spaces** to track usable rectangular regions remaining inside a carton.
 
-The empty carton begins as one rectangular empty space. For each physical item the solver:
+For each item it generates legal orientations and meaningful corner or extreme point positions, then rejects placements that are out of bounds or collide with already packed items. The engine updates and prunes the remaining empty spaces after each placement.
 
-1. generates the item's legal orientations,
-2. checks meaningful corner or extreme point positions inside retained empty spaces,
-3. rejects out of bounds or colliding placements,
-4. scores valid candidates by compactness and low placement,
-5. places the best deterministic candidate,
-6. updates the remaining empty spaces,
-7. removes duplicate, contained or unusable spaces,
-8. repeats for the next item.
+The geometry is shared by both strategies so the benchmark compares placement selection rather than two different algorithms.
 
-This avoids scanning arbitrary XYZ coordinates and keeps the geometric search understandable and bounded.
+### 5. First Fit Baseline
 
-### 5. Multi Carton Solver
+First Fit accepts the first valid placement encountered in the deterministic candidate order.
+
+It is the baseline because it minimizes search work and gives us a clear latency reference.
+
+### 6. Best Fit Comparison
+
+Best Fit examines the same valid candidates, scores them deterministically, and chooses the preferred placement.
+
+The project will measure whether that extra search reduces carton count, reduces total carton volume, or improves utilization enough to justify the additional latency.
+
+### 7. Multi Carton Solver
 
 If no one carton solution exists, the solver constructs a multiple carton plan. Difficult items are handled first, existing open cartons are reused where a full EMS repack still succeeds, and a new carton is opened only when required.
 
-### 6. Bounded Improvement
-
-Once a valid plan exists, a small deterministic set of alternative item orderings or carton elimination attempts can be tested while runtime remains.
-
-The solver always retains the best known valid plan. Improvement is never allowed to turn a working plan into an invalid result.
-
-### 7. Independent Validation
+### 8. Independent Validation
 
 The final result is checked independently from the solver that created it. The validator confirms item accounting, legal orientations, carton boundaries, non overlap, weight, fill and buffer compliance before success is returned.
+
+## First Fit vs Best Fit Experiment
+
+The project does not assume Best Fit is automatically better.
+
+Both strategies use the same:
+
+1. item ordering,
+2. legal orientations,
+3. EMS regions,
+4. candidate positions,
+5. collision and boundary checks,
+6. carton constraints,
+7. final validator.
+
+The only intended difference is how a valid placement is selected.
+
+The benchmark will compare:
+
+| Metric | Question |
+| --- | --- |
+| Valid solution rate | Do both strategies solve the same orders? |
+| Average cartons per order | Does Best Fit reduce carton usage? |
+| Orders with fewer cartons | How often does one strategy beat the other? |
+| Total carton volume | Does one strategy choose smaller cartons when count is equal? |
+| Utilization | Does packing become tighter? |
+| Median runtime | What is typical latency? |
+| P95 runtime | What is service level latency? |
+| Maximum runtime | What happens in difficult cases? |
+| Runtime delta | How much extra latency does Best Fit cost? |
+
+The production default should be selected only after this comparison is measured.
 
 ## Why Volume Alone Is Not Enough
 
@@ -118,10 +153,11 @@ For multiple items, the solver must determine whether they can occupy different 
 | `feasibility.py` | Cheap carton pruning |
 | `geometry.py` | Bounds and collision primitives |
 | `spaces.py` | EMS creation, update, pruning and candidate positions |
-| `placement.py` | Deterministic EMS Best Fit XYZ placement |
+| `placement.py` | Shared valid placement candidate engine |
+| `strategies.py` | First Fit and Best Fit selection rules |
 | `single_box.py` | Smallest valid one carton search |
 | `multi_box.py` | Multiple carton construction |
-| `improve.py` | Runtime bounded deterministic improvement |
+| `improve.py` | Optional runtime bounded improvement after baseline benchmarking |
 | `validate.py` | Independent final plan validation |
 | `result.py` | Stable serializable output |
 
@@ -133,15 +169,15 @@ Unit tests are part of the implementation of each module, not a final cleanup st
 
 A component is only ready for the next development phase when its functional contract and tests pass. EMS management is tested separately from placement so empty space splitting and pruning can be verified without relying on the full solver.
 
-The normal CI suite should cover pure unit tests, component tests, end to end solver tests and regression fixtures. Historical iHub dataset benchmarking should run separately because it measures solution quality and runtime rather than basic correctness.
+The strategy tests must also prove that First Fit and Best Fit receive the same candidate universe and apply identical geometry and business constraints.
 
-The final validator is intentionally independent from the placement heuristic so a bug in the solver cannot silently approve its own invalid geometry.
+Historical iHub dataset benchmarking should run separately because it measures solution quality and runtime rather than basic correctness.
 
 ## Performance Direction
 
-The solver should find a valid plan quickly and spend only the remaining runtime budget on improvements.
+The initial engineering target is **P95 below 1 second per representative order**, with a target median below 250 ms.
 
-The initial engineering target is **P95 below 1 second per representative order**, with a target median below 250 ms. The runtime target does not weaken validity requirements.
+First Fit and Best Fit must be reported separately. Improvement logic should be disabled for the initial comparison so later optimization does not hide the actual placement strategy tradeoff.
 
 The optimization priority is:
 
@@ -160,6 +196,7 @@ Current benchmark defaults include:
 | Rule | Default |
 | --- | --- |
 | Optimization objective | Minimize number of cartons |
+| Placement strategy | `first_fit` baseline |
 | Fill threshold | 6 physical items |
 | Maximum fill above threshold | 70% |
 | Bin buffer | 0 mm length, 0 mm width, 6 mm height |
@@ -170,11 +207,9 @@ Under the current fill rule, orders with six or fewer physical items may use up 
 
 ## Optimization Approach
 
-Three dimensional bin packing is computationally difficult. Exact methods exist, but this project deliberately uses a lightweight heuristic under a practical runtime budget.
+Three dimensional bin packing is computationally difficult. Exact methods exist, but this project deliberately uses lightweight deterministic heuristics under a practical runtime budget.
 
-V1 uses EMS based deterministic Best Fit placement for axis aligned cuboids. More complex techniques such as randomized multi start search, simulated annealing, layer backtracking, parallel workers, support ratio constraints or voxel based packing are deferred until benchmark evidence shows a real need.
-
-This keeps the first implementation explainable and testable while leaving a clear escalation path if difficult orders expose weaknesses.
+V1 uses one shared EMS geometry engine with First Fit as the baseline and Best Fit as the comparison strategy. More complex techniques such as randomized multi start search, simulated annealing, layer backtracking, parallel workers, support ratio constraints or voxel based packing are deferred until benchmark evidence shows a real need.
 
 See [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) for the literature review and design rationale.
 

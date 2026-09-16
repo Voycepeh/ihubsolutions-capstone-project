@@ -16,6 +16,7 @@ src/
     orientation.py
     feasibility.py
     geometry.py
+    spaces.py
     placement.py
     single_box.py
     multi_box.py
@@ -31,6 +32,8 @@ from ihub_packing import solve_order
 ```
 
 The package `__init__.py` is the public facade and orchestrator. The remaining modules are internal components that should be developed and tested independently.
+
+The selected V1 geometric strategy is EMS based deterministic Best Fit. `spaces.py` owns Empty Maximal Space creation, update, pruning and candidate position generation, while `placement.py` owns item ordering, candidate evaluation, scoring and placement decisions.
 
 Implementation should proceed component by component. Each module should satisfy the functional contract and required unit tests in `PRODUCT_SPEC.md` before downstream modules depend on it.
 

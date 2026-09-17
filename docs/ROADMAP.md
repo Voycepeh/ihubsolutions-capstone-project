@@ -1,14 +1,14 @@
 # Roadmap
 
-Development is intentionally staged so the public contract and simple geometry rules are proven before multi-item optimization is introduced.
+Development is intentionally staged so the public package contract and simple geometry rules are proven before multi-item optimization is introduced.
 
-## MVP 0: API contract + one item per carton
+## MVP 0: package contract + one item per carton
 
-Goal: produce the first working, testable API/library baseline.
+Goal: produce the first working, testable Python-library baseline.
 
 Included:
 
-- Pydantic-style request and response models
+- structured input and output models
 - quantity expansion
 - configurable carton catalogue
 - maximum-weight check
@@ -27,6 +27,7 @@ Not included:
 - remaining empty-space tracking
 - First Fit
 - Best Fit
+- web API or service layer
 
 ## MVP 1: multiple items in one carton
 
@@ -66,6 +67,6 @@ Only after the baseline strategies are measured, consider:
 
 ## Release principle
 
-Each stage should leave the public API contract stable. Later work improves packing quality rather than redesigning how callers submit orders or consume results.
+Each stage should leave the public Python interface stable. Later work improves packing quality rather than redesigning how callers import the package, submit inputs or consume results.
 
-See [`API.md`](API.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), and [`../src/PRODUCT_SPEC.md`](../src/PRODUCT_SPEC.md) for the current contracts.
+See [`INTERFACE.md`](INTERFACE.md), [`ARCHITECTURE.md`](ARCHITECTURE.md), and [`../src/PRODUCT_SPEC.md`](../src/PRODUCT_SPEC.md) for the current contracts.

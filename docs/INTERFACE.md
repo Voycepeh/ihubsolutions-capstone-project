@@ -40,8 +40,23 @@ class ItemInput(BaseModel):
 | `height` | `float` | Yes | `> 0`, mm |
 | `weight` | `float` | Yes | `> 0`, kg |
 | `quantity` | `int` | Yes | `>= 1` |
-| `vertical_rotation` | `bool` | Yes | Controls allowed orientations |
+| `vertical_rotation` | `bool` | Yes | Controls whether the original height may move away from vertical Z |
 | `uom` | `str | None` | No | Descriptive only |
+
+### Rotation behavior
+
+A rectangular item can have up to six unique 90-degree axis assignments when all three dimensions are different. Duplicate orientations are removed automatically when dimensions repeat.
+
+When `vertical_rotation = true`, every unique 90-degree orientation may be tested.
+
+When `vertical_rotation = false`, the original item height must remain on the vertical Z axis. Only the two horizontal arrangements below are allowed, subject to duplicate removal:
+
+```text
+L × W × H
+W × L × H
+```
+
+This allows an item to turn around while remaining upright, but prevents tipping it onto its side. A liquid container is a typical example: a geometrically valid sideways fit must still be rejected if the item is required to stay upright.
 
 ### Order
 
@@ -196,10 +211,12 @@ Example MVP 0 result:
 }
 ```
 
-Items that cannot fit any supplied carton must be returned explicitly in `not_packed_items`; they must never disappear silently.
+The returned `length`, `width`, and `height` are the chosen orientation used for the successful placement, not necessarily the item's original dimension order.
+
+Items that cannot fit any supplied carton in any allowed orientation must be returned explicitly in `not_packed_items`; they must never disappear silently.
 
 ## Current MVP 0 behavior
 
-MVP 0 deliberately uses one physical item per carton. For each item it expands quantity, checks weight, generates allowed orientations, applies carton clearance, selects the smallest-volume carton that physically fits the item, places it at `x=0, y=0, z=0`, and returns the chosen carton and orientation.
+MVP 0 deliberately uses one physical item per carton. For each item it expands quantity, checks weight, generates only the allowed orientations, applies carton clearance, selects the smallest-volume carton that physically fits the item, places it at `x=0, y=0, z=0`, and returns the chosen carton and orientation.
 
 Multi-item packing, overlap checks, remaining empty-space tracking, First Fit and Best Fit are later milestones. See [`ROADMAP.md`](ROADMAP.md).

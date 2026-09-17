@@ -6,7 +6,7 @@ The root README stays intentionally short. Detailed behavior is split into focus
 
 | Document | Purpose |
 | --- | --- |
-| [`API.md`](API.md) | Request/response schemas, field types and FastAPI/OpenAPI direction |
+| [`INTERFACE.md`](INTERFACE.md) | Python package inputs, outputs and public function contract |
 | [`ARCHITECTURE.md`](ARCHITECTURE.md) | Package structure, module boundaries and end-to-end flow |
 | [`CONFIGURATION.md`](CONFIGURATION.md) | Runtime packing rules and defaults |
 | [`TESTING.md`](TESTING.md) | Unit-test strategy and milestone test cases |
@@ -26,4 +26,4 @@ The root README stays intentionally short. Detailed behavior is split into focus
 
 Keep each file focused on one concern. Do not grow the root README into the product specification.
 
-Technical terms should be introduced accurately once and then replaced with simpler wording in normal explanation. Keep exact terminology only where it is required for research references, API field names or code identifiers.
+Technical terms should be introduced accurately once and then replaced with simpler wording in normal explanation. Keep exact terminology only where it is required for research references, package field names or code identifiers.

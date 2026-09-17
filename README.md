@@ -14,6 +14,8 @@ The solver accepts:
 
 It returns selected cartons, item placements, unpacked items and runtime.
 
+The objective is simple: return a valid packing plan using the **fewest cartons**, then prefer the **smallest total carton volume** when carton count is equal.
+
 ## Public interface
 
 ```python
@@ -28,17 +30,22 @@ result = solve_order(
 
 `solve_order()` is the only public solver function normal users need.
 
-## Product direction
+## MVP roadmap
 
-The solver is a lightweight deterministic heuristic rather than an exact optimizer.
+The MVP sequence follows the actual business problem:
 
-The implementation sequence is deliberately simple:
+1. **MVP 0: Fit one item** — generate allowed orientations and choose the smallest valid carton.
+2. **MVP 1: Pack many items into one carton** — add sequencing, orientation, XYZ placement, overlap checks and remaining-space tracking.
+3. **MVP 2: Pack the full order** — use the whole carton catalogue and return the fewest valid cartons, preferring smaller cartons when carton count is equal.
+4. **MVP 3: Improve the result** — compare First Fit and Best Fit, retry selected item sequences, and attempt carton consolidation within a runtime limit.
 
-1. **MVP 1: First Fit** — complete end to end solver including single carton, multiple carton fallback, iHub packing rules, 3D coordinates, validation and runtime.
-2. **MVP 2: Best Fit** — use the same geometry and candidates, but compare all valid positions before selecting one. Benchmark the quality versus latency tradeoff against First Fit.
-3. **MVP 3: Bounded improvement** — only if benchmark evidence justifies it, try a small number of alternative item orders or carton consolidation attempts within the runtime budget.
+The core packing loop is:
 
-The complete functional contract is in [`src/PRODUCT_SPEC.md`](src/PRODUCT_SPEC.md). That is the single source of truth for implementation behavior.
+**sequence items → choose allowed orientation → choose XYZ position → validate placement → continue or retry**
+
+This structure is adapted from the study's separation of sequencing, orientating and loading decisions, while our implementation remains focused on rectangular items rather than free-form CAD parts.
+
+The complete functional contract is in [`src/PRODUCT_SPEC.md`](src/PRODUCT_SPEC.md).
 
 ## Simplified package structure
 
@@ -64,7 +71,7 @@ ihubsolutions-capstone-project/
 └── README.md
 ```
 
-The package intentionally avoids one file per helper concept. Geometry, remaining empty spaces, First Fit, Best Fit and single or multiple carton search all belong to the same packing engine until there is a clear reason to split them.
+The package intentionally avoids one file per helper concept. Related geometry and search logic stay together until there is a clear reason to split them.
 
 ## Key packing rules
 
@@ -72,19 +79,18 @@ The solver must support:
 
 - configurable carton catalogue,
 - quantity expansion into physical items,
-- upright only items through `VerticalRotation`,
+- upright-only items through `VerticalRotation`,
 - maximum carton weight,
 - configurable carton buffer,
 - configurable fill threshold and fill percentage,
 - 3D boundary and overlap checks,
 - single and multiple carton packing,
 - unpackable item reporting,
-- deterministic First Fit and Best Fit strategies,
 - independent final validation.
 
-## Documentation
+The exact orientation rule is illustrated in [`docs/images/exact_vertical_rotation_orientations.png`](docs/images/exact_vertical_rotation_orientations.png).
 
-Keep supporting documentation small:
+## Documentation
 
 | Document | Purpose |
 | --- | --- |
@@ -92,10 +98,10 @@ Keep supporting documentation small:
 | [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) | Algorithm rationale and literature |
 | [`docs/dataset-specification.md`](docs/dataset-specification.md) | Supplied benchmark data and fields |
 
-Exploratory findings belong in `notebooks/`. Product behavior belongs in the product spec rather than being duplicated across several architecture, roadmap and interface documents.
+Exploratory findings belong in `notebooks/`. Product behavior belongs in the product spec.
 
 ## Development principle
 
-Build the smallest complete valid solver first, test it end to end, then add packing intelligence only when benchmark evidence shows the extra complexity is worthwhile.
+Build capability in layers: prove one-item fit, then multi-item geometry, then solve the complete order, then improve the answer only after the core solver works.
 
 The historical iHub outputs are a benchmark rather than mathematical ground truth. A different arrangement is acceptable when it is valid, respects the agreed constraints and improves the stated objective.

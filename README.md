@@ -14,7 +14,9 @@ The solver accepts three things:
 
 It returns the selected cartons, item placements, unpacked items and runtime.
 
-## Python interface
+## Use the package
+
+Clone or install the repository, then import the package and call the main solver function:
 
 ```python
 from bin_packing_3d import solve_order
@@ -26,14 +28,14 @@ result = solve_order(
 )
 ```
 
-A later FastAPI endpoint will be a thin wrapper around the same function so the packing engine remains reusable outside the API.
+`solve_order()` is the main public entry point. The current product is the Python package itself; no service or web API is required for the MVP.
 
 ## Current milestone: MVP 0
 
 The first implementation is deliberately simple:
 
 ```text
-Validate request
+Validate inputs
     ↓
 Expand Quantity into physical items
     ↓
@@ -48,7 +50,7 @@ Place one item per carton at x=0, y=0, z=0
 Return the packing result
 ```
 
-This proves the API contract, data validation, orientation rules, carton selection and output schema before introducing multi-item geometry.
+This proves the package interface, data validation, orientation rules, carton selection and output structure before introducing multi-item geometry.
 
 Multi-item packing, remaining empty spaces, First Fit and Best Fit come in later milestones.
 
@@ -56,7 +58,7 @@ Multi-item packing, remaining empty spaces, First Fit and Best Fit come in later
 
 | Document | Purpose |
 | --- | --- |
-| [`docs/API.md`](docs/API.md) | Request/response schemas, data types and FastAPI direction |
+| [`docs/INTERFACE.md`](docs/INTERFACE.md) | Python package inputs, outputs and public function contract |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Package structure, module responsibilities and solver flow |
 | [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Runtime packing rules and defaults |
 | [`docs/TESTING.md`](docs/TESTING.md) | Unit-test strategy and MVP 0 cases |
@@ -74,7 +76,7 @@ ihubsolutions-capstone-project/
 │   ├── PRODUCT_SPEC.md
 │   └── bin_packing_3d/        # reusable Python package
 ├── tests/                     # unit and component tests
-├── docs/                      # API, architecture and project documentation
+├── docs/                      # interface, architecture and project documentation
 ├── notebooks/                 # exploratory analysis and benchmark EDA
 ├── data/raw/                  # supplied development benchmark data
 └── README.md
@@ -82,6 +84,6 @@ ihubsolutions-capstone-project/
 
 ## Development principle
 
-Build the smallest valid layer first, test it, then add packing intelligence without changing the public contract.
+Build the smallest valid layer first, test it, then add packing intelligence without changing the public package contract.
 
 The historical iHub outputs are a benchmark rather than mathematical ground truth. A different carton arrangement is acceptable when it is valid, respects the agreed constraints and improves the stated objective.

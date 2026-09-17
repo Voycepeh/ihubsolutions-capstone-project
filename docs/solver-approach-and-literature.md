@@ -2,176 +2,187 @@
 
 ## Project Direction
 
-The project will build a lightweight heuristic 3D cartonization solver.
+The project will build a lightweight 3D cartonization solver that aims to find a good valid packing quickly rather than prove the mathematically best possible packing for every order.
 
-The primary objective is to minimize the number of cartons used while ensuring that every returned packing is physically valid and satisfies the supplied operational constraints.
+The primary objective is to minimize the number of cartons used while respecting item dimensions, allowed rotation, carton weight, fill rules and configured clearance.
 
-Rather than treating cartonization as a volume only problem, the solver separates the problem into two decisions:
+The solver separates the problem into two questions:
 
 1. Which carton should be tried?
-2. Can the items physically fit inside that carton?
+2. Can the items physically fit inside it without overlap?
 
-This distinction is important because the available cartons have different dimensions and aspect ratios. A carton may have sufficient total volume but still be unable to contain an item or group of items geometrically.
+Volume and weight can quickly reject impossible cartons, but they cannot prove that multiple rectangular items can actually be arranged inside the same carton.
 
-## 1. Bin Selection Strategy
+## Technical Terms Used in This Page
 
-The project will initially compare three simple bin selection heuristics.
+Two packing terms are useful to name once because they appear in the literature.
+
+**Empty Maximal Space** is the technical term for a useful rectangular region of empty space remaining inside a carton after items have been placed. From this point onward, this page calls it a **remaining empty space**.
+
+**Extreme Point** is the technical term for a useful placement position created from carton boundaries or the faces of items already packed. From this point onward, this page calls it a **candidate position**.
+
+A **heuristic** is a practical rule-based method that tries to find a good solution quickly without proving the mathematically best possible answer. From this point onward, this page generally uses **packing strategy** or **approach**.
+
+See [`TERMINOLOGY.md`](TERMINOLOGY.md) for the shared repository terminology guide.
+
+## 1. Shared 3D Placement Approach
+
+The current product design uses one shared 3D placement engine for both First Fit and Best Fit.
+
+The engine works with rectangular items placed only in allowed 90-degree orientations. It does not scan every possible XYZ coordinate. Instead, it keeps track of the remaining empty rectangular spaces in the carton and tests a bounded set of candidate positions around carton and packed-item boundaries.
+
+For each item, the shared placement logic is:
+
+1. Order harder items first.
+2. List the item orientations that are allowed.
+3. Look through the current remaining empty spaces.
+4. Generate useful candidate positions.
+5. Reject positions outside the carton.
+6. Reject positions that overlap an item already packed.
+7. Pass valid positions to the selected placement strategy.
+8. Place the item.
+9. Update the remaining empty spaces.
+10. Remove duplicate, contained or unusable spaces.
+11. Repeat for the next item.
+
+This gives both strategies the same geometry and business rules so the comparison is fair.
+
+## 2. First Fit and Best Fit
+
+The initial experiment compares **First Fit** and **Best Fit** as placement-selection strategies, not as two different geometry engines.
 
 ### First Fit
 
-Try existing cartons in order and place the item into the first carton where a valid 3D placement can be found.
+First Fit accepts the first valid candidate position it encounters in the shared deterministic order.
 
-If no existing carton can accept the item, open a suitable new carton.
+Its purpose is to provide a simple low-search baseline. Because it stops once it finds a valid position, it should usually perform less work.
 
 ### Best Fit
 
-Evaluate the cartons where a valid placement exists and choose the carton that leaves the least remaining usable capacity.
+Best Fit looks at the same valid candidate positions but continues evaluating them and chooses the preferred position using a fixed priority order.
 
-This aims to improve carton utilization.
+The comparison should answer whether the additional search produces enough packing improvement to justify the added runtime.
 
-### Worst Fit
+### What is not part of the initial comparison
 
-Evaluate the cartons where a valid placement exists and choose the carton that leaves the most remaining usable capacity.
+Worst Fit is not part of the current V1 experiment. Earlier planning considered it, but the selected product specification now focuses on First Fit versus Best Fit because that directly tests the expected speed-versus-packing-quality tradeoff.
 
-This spreads items across available space and provides a useful comparison against First Fit and Best Fit.
+Random search, simulated annealing, genetic algorithms, deep backtracking, parallel workers and voxel-based packing are also deferred until benchmark evidence shows that the simpler strategies are insufficient.
 
-The three strategies will use the same constraint and geometry engine so their results can be compared fairly.
+## 3. Why Volume Alone Is Not Enough
 
-## 2. 3D Placement Strategy
+Total item volume is useful as a fast rejection check:
 
-Bin selection alone is not enough.
+`total item volume <= allowed carton volume`
 
-For every candidate carton, the solver must determine whether the items can actually be positioned inside it without overlap.
+But that condition does not prove a packing exists.
 
-A practical constructive approach is:
+For example, an item can have less volume than a carton and still be too long in every allowed orientation. Multiple items can also have enough total volume to fit while their shapes prevent a valid non-overlapping arrangement.
 
-**Largest or hardest item first → lowest available placement position → try permitted orientations → validate → place → repeat**
+The solver must therefore check actual dimensions, allowed orientation and 3D placement after the volume test.
 
-Instead of checking every possible XYZ coordinate, the solver will test meaningful candidate positions generated from previously placed items.
+## 4. Item Ordering
 
-For example, when an item is placed, new candidate positions may be created beside or above its exposed faces.
+Packing order matters because an early placement can make later items harder or easier to fit.
 
-This keeps the search finite while still producing a genuine 3D packing.
+The initial deterministic order should prioritize harder items first, using the agreed product specification. The first version currently prioritizes restricted rotation, then larger volume, then larger longest dimension, with a stable item identifier as the final tie-break.
 
-## Volume Is a Filter, Not the Solver
+Other item orders can later be compared without changing the geometry engine, for example:
 
-Total volume is useful as an inexpensive rejection test.
+- larger volume first,
+- longest dimension first,
+- largest face first,
+- rotation-restricted items first.
 
-However:
+The choice should be benchmarked rather than assumed.
 
-`total item volume <= carton volume`
+## 5. Packing Constraints
 
-does not prove that a packing exists.
+A placement is valid only when all required checks pass:
 
-For example, a long thin item may have very low volume but still be too long for every orientation of a particular carton.
+- item dimensions remain inside the usable carton dimensions,
+- the chosen item orientation is allowed,
+- the item does not overlap anything already packed,
+- carton weight stays within the maximum,
+- the configured fill rule is respected,
+- the configured carton clearance is respected.
 
-The solver must therefore check actual dimensions, orientation and spatial placement after the volume test.
+A carton should never be treated as valid merely because enough total volume remains.
 
-Similarly, two remaining spaces with the same volume may have very different usefulness because their shapes are different.
-
-## Item Ordering
-
-A common constructive heuristic is to place difficult items before easier items.
-
-The initial baseline can use decreasing item volume because it is simple and reproducible.
-
-However, volume alone may not represent packing difficulty well. A long thin item can be more difficult to place than a compact item with greater volume.
-
-The project can therefore compare alternative ordering strategies such as:
-
-* Volume descending
-* Longest dimension descending
-* Largest face area descending
-* Rotation restricted items first
-
-These strategies can be evaluated empirically against the supplied orders rather than assuming one definition of "largest" is always best.
-
-## Packing Constraints
-
-A placement is valid only when all relevant constraints pass:
-
-* 3D dimensions and carton boundaries
-* Permitted item orientation
-* No overlap with already packed items
-* Maximum carton weight
-* Configurable carton fill limit
-* Configurable carton buffer or clearance
-
-The bin selection heuristic should never consider a carton feasible merely because sufficient volume remains.
-
-## Initial Solver Flow
+## 6. Current Solver Flow
 
 ```text
-Order
+Order + carton catalogue + configuration
   ↓
-Expand quantities
+Validate and expand quantities
   ↓
-Order items
+List allowed item orientations
   ↓
-Try candidate carton
+Reject cartons that are definitely impossible
   ↓
-Generate candidate 3D positions
+Try one carton first, smallest suitable carton first
   ↓
-Try permitted orientations
+Track remaining empty rectangular spaces
   ↓
-Validate geometry and constraints
+Generate useful candidate positions
   ↓
-Place item
+Check boundaries and overlap
   ↓
-Repeat
+First Fit: take first valid position
+or
+Best Fit: compare valid positions and choose preferred one
+  ↓
+Update remaining empty spaces
+  ↓
+Repeat until all items are packed
+  ↓
+If one carton fails, construct a multiple-carton plan
+  ↓
+Independently validate the result
 ```
 
-The carton selection step can independently use:
+## 7. Evaluation
 
-```text
-First Fit
-Best Fit
-Worst Fit
-```
+The supplied solved iHub orders provide a common benchmark for the two strategies.
 
-while all three strategies share the same 3D placement engine.
-
-## Evaluation
-
-The supplied solved orders allow the project to compare the different strategies using the same benchmark.
-
-The initial experiment should compare:
-
-* Largest First + First Fit
-* Largest First + Best Fit
-* Largest First + Worst Fit
-
-Key measures include:
+The initial experiment should run First Fit and Best Fit independently with later improvement logic disabled so the strategy difference is measured cleanly.
 
 | Measure | Purpose |
 | --- | --- |
-| Packing success | Whether all items can be packed |
-| Cartons used | Primary optimization objective |
-| Reference carton count | Comparison with supplied iHub result |
-| Space utilization | Secondary packing quality |
-| Constraint violations | Packing correctness |
-| Runtime | Practical performance |
+| Valid solution rate | Whether all required items are packed correctly |
+| Cartons used | Primary optimization outcome |
+| Orders where one strategy uses fewer cartons | Direct strategy comparison |
+| Total carton volume | Compare carton size when carton count is equal |
+| Space utilization | Percentage of carton volume occupied by packed items |
+| Median runtime | Typical speed |
+| P95 runtime | Time within which 95% of orders finish |
+| Maximum runtime | Difficult-case behavior |
+| Runtime difference | Additional time paid for Best Fit |
 
-Further experiments can change the item ordering while keeping the placement engine unchanged.
+The main experimental question is:
 
-This gives the project a modular experimental framework where individual heuristics can be compared without rewriting the complete solver.
+> How much additional runtime does Best Fit require, and how often does that additional search reduce carton count or carton volume compared with First Fit?
 
-## Literature Rationale
+## 8. Literature Rationale
 
-Research on 3D bin packing shows that exact optimization is computationally difficult and that constructive heuristics are widely used to obtain practical feasible solutions.
+Research on three-dimensional bin packing shows that exact optimization can become computationally difficult as the number of items and possible arrangements grows. Practical systems therefore often use constructive packing strategies that build a solution one item at a time.
 
-Martello, Pisinger and Vigo describe the three dimensional bin packing problem and exact approaches to minimizing bin count.
+Martello, Pisinger and Vigo describe the three-dimensional bin packing problem and exact approaches to minimizing bin count.
 
-Lodi, Martello and Vigo demonstrate heuristic approaches for three dimensional bin packing.
+Lodi, Martello and Vigo study practical strategies for three-dimensional bin packing.
 
-Crainic, Perboli and Tadei show the importance of candidate placement locations through extreme point based heuristics.
+Crainic, Perboli and Tadei study **Extreme Point-Based Heuristics**. In the language used by this project, the useful takeaway is to test meaningful **candidate positions** rather than every coordinate in the carton.
 
-These works support the project's decision to use a constructive geometric packing approach while experimentally comparing simple carton selection and item ordering heuristics.
+The project also reviewed `Xebet/3d-packing-simulator`, which demonstrates a practical implementation using remaining empty rectangular spaces, candidate placement positions, multiple orientations, overlap checks and independent validation. The project does not copy that implementation wholesale; it uses those established ideas as references for an independently developed Python solver with iHub-specific rules.
 
-The project does not claim that the resulting packing is globally optimal for every possible instance. Instead, it aims to produce valid, fast and explainable packing decisions and measure their quality against the supplied benchmark.
+The MIT Scalable Spectral Packing work provides another useful conceptual comparison: order the objects, search for collision-free placements, score placement quality and repeat. Its voxel-grid and Fast Fourier Transform approach is aimed at more general 3D shapes and is therefore not selected for this rectangular-item MVP.
+
+These sources support the current design choice: use a simple, explainable shared geometry engine first, compare First Fit and Best Fit experimentally, and add more complex search only when measured results justify it.
 
 ## References
 
 1. Martello, S., Pisinger, D., & Vigo, D. (2000). The Three-Dimensional Bin Packing Problem. *Operations Research, 48*(2), 256 to 267. https://doi.org/10.1287/opre.48.2.256.12386
 2. Lodi, A., Martello, S., & Vigo, D. (2002). Heuristic algorithms for the three-dimensional bin packing problem. *European Journal of Operational Research, 141*(2), 410 to 420. https://doi.org/10.1016/S0377-2217(02)00134-0
 3. Crainic, T. G., Perboli, G., & Tadei, R. (2008). Extreme Point-Based Heuristics for Three-Dimensional Bin Packing. *INFORMS Journal on Computing, 20*(3), 368 to 384. https://doi.org/10.1287/ijoc.1070.0250
+4. Xebet. *3d-packing-simulator*. GitHub repository: https://github.com/Xebet/3d-packing-simulator
+5. MIT News. *Chore of packing just got faster and easier*. 2023. https://news.mit.edu/2023/chore-packing-just-got-faster-and-easier-0706

@@ -1,6 +1,6 @@
 # Source Code
 
-`src/` contains the reusable cartonization product and its functional specification.
+`src/` contains the reusable 3D bin-packing product and its functional specification.
 
 Before implementing or changing solver behavior, update [`PRODUCT_SPEC.md`](PRODUCT_SPEC.md). The specification defines the public interface, module boundaries, functional behavior, objective ordering, unit test requirements and acceptance gates.
 
@@ -11,7 +11,7 @@ The repository terminology guide is [`../docs/TERMINOLOGY.md`](../docs/TERMINOLO
 ```text
 src/
   PRODUCT_SPEC.md
-  ihub_packing/
+  bin_packing_3d/
     __init__.py
     models.py
     normalize.py
@@ -31,7 +31,7 @@ src/
 Users should call only:
 
 ```python
-from ihub_packing import solve_order
+from bin_packing_3d import solve_order
 ```
 
 The package `__init__.py` is the public facade and orchestrator. The remaining modules are internal components that should be developed and tested independently.

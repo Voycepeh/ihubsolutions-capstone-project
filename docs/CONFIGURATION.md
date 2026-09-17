@@ -48,11 +48,22 @@ MVP 0 sorts all cartons that can validly contain an item by external carton volu
 
 ## Rotation rule
 
-`vertical_rotation` is an item-level rule.
+`vertical_rotation` is an item-level hard packing constraint.
 
-When `true`, the solver may test every unique 90-degree orientation of the item's length, width and height.
+When `true`, the solver may test every unique 90-degree assignment of the item's original length, width and height to X, Y and Z, up to six unique orientations.
 
-When `false`, the original height remains on the vertical Z axis. Length and width may still swap horizontally.
+When `false`, the original height must remain on the vertical Z axis. Length and width may still swap horizontally:
+
+```text
+L × W × H
+W × L × H
+```
+
+Repeated dimensions are deduplicated, so symmetric items naturally have fewer unique orientations.
+
+A fit that requires a forbidden orientation is not valid even when the item would physically fit after tipping. This matters for upright-only products such as bottles or liquid containers where laying the item on its side could cause leakage or damage.
+
+This rule must remain enforced in every later solver stage, including multi-item placement, First Fit, Best Fit and bounded improvement.
 
 No diagonal or arbitrary-angle rotation is supported.
 

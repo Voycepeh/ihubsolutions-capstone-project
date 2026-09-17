@@ -2,146 +2,11 @@
 
 ## 1. Purpose
 
-This document is the functional source of truth for the reusable 3D bin-packing solver used in the iHub capstone before implementation begins.
+This document is the single functional source of truth for the reusable 3D bin packing solver.
 
-The objective is to agree exactly how each component behaves, what it receives, what it returns, what it must reject, and how it will be tested. Technical implementation must follow these contracts rather than allowing code choices to define product behavior after the fact.
+The goal is to keep the product small enough to understand and test as one system while still separating the few responsibilities that genuinely need their own module.
 
-The product is a reusable Python packing engine. Users interact with one public function only. Internal modules remain independently testable so the solver can be developed component by component and later exposed through an API without rewriting the packing logic.
-
-The reusable Python package is named **`bin_packing_3d`**. iHub is the benchmark dataset and business use case, not the package identity.
-
-## 2. Product Goal
-
-Given an order, a configurable carton catalogue, and configurable packing rules, return a valid packing plan within a bounded runtime while minimizing carton count as the primary objective.
-
-A one-carton solution always beats a two-carton solution when both are valid. Among solutions using the same number of cartons, prefer lower total carton volume and then higher space utilization.
-
-Validity always comes before optimization. An invalid arrangement must never be returned merely because it uses fewer cartons.
-
-## 3. Technical Terms Used in This Specification
-
-The project uses a few established packing terms. They are defined here once so the rest of the specification can use simpler language.
-
-**Empty Maximal Space** is the technical term for a useful rectangular region of empty space remaining inside a carton after items have been placed. From this point onward, this document calls it a **remaining empty space** or **empty rectangular space**.
-
-**Extreme Point** is the technical term for a useful placement position created from carton boundaries or the faces of items already packed. From this point onward, this document calls it a **candidate position**.
-
-A **heuristic** is a practical rule-based method that tries to find a good solution quickly without proving the mathematically best possible answer. From this point onward, this document generally uses **packing strategy**, **method**, or **approach**.
-
-**Axis-aligned placement** means an item is kept parallel to the carton X, Y and Z axes rather than placed diagonally. From this point onward, this document generally says **allowed 90-degree orientation**.
-
-See [`../docs/TERMINOLOGY.md`](../docs/TERMINOLOGY.md) for the repository-wide terminology guide.
-
-## 4. Selected V1 Solver Strategy
-
-The V1 geometric foundation is a deterministic 3D packing engine that tracks the remaining empty rectangular spaces inside a carton.
-
-Items are tested only at useful candidate positions inside those spaces. The solver does not scan every possible XYZ coordinate and does not perform exhaustive search.
-
-The shared geometry engine supports two placement strategies:
-
-1. **First Fit** is the baseline strategy.
-2. **Best Fit** is the comparison strategy.
-
-Both strategies must use the same item ordering, allowed orientations, remaining empty spaces, candidate positions, overlap checks, carton rules, and final validator. This isolates the difference between placement-selection strategies rather than comparing two completely different engines.
-
-### 4.1 First Fit baseline
-
-First Fit checks candidate positions in a deterministic order and accepts the first valid placement.
-
-Conceptually:
-
-```python
-for space in ordered_spaces:
-    for orientation in allowed_orientations:
-        for position in candidate_positions:
-            if placement_is_valid(...):
-                return placement
-```
-
-First Fit does not score every valid candidate before placing the item.
-
-Its purpose is to establish the simplest fast baseline and measure how far a low-search-cost strategy can go before extra placement evaluation becomes worthwhile.
-
-### 4.2 Best Fit comparison
-
-Best Fit uses the same candidate generation but evaluates all valid candidates within the configured limits, scores them using a fixed priority order, and selects the preferred placement.
-
-Conceptually:
-
-```python
-valid_candidates = []
-
-for space in ordered_spaces:
-    for orientation in allowed_orientations:
-        for position in candidate_positions:
-            if placement_is_valid(...):
-                valid_candidates.append(score(...))
-
-return best(valid_candidates)
-```
-
-Best Fit exists to test whether extra candidate evaluation produces better packing outcomes that justify the additional runtime.
-
-### 4.3 Experimental question
-
-The project must not assume Best Fit is better overall simply because it searches more placements.
-
-The benchmark must answer:
-
-1. Is First Fit materially faster at median and P95 runtime?
-2. How often does Best Fit reduce carton count relative to First Fit?
-3. When carton count is equal, does Best Fit select lower total carton volume?
-4. Does Best Fit improve space utilization?
-5. On which order-complexity bands do the strategies diverge?
-6. Is any improvement large enough to justify the added search cost?
-
-The default production strategy should be selected only after these results are measured.
-
-### 4.4 V1 boundary
-
-Included in V1:
-
-1. Remaining empty rectangular spaces as the search-space representation.
-2. Allowed 90-degree item orientations.
-3. Useful candidate positions inside each remaining empty space.
-4. Exact carton-boundary and item-overlap checks.
-5. Deterministic First Fit placement.
-6. Deterministic Best Fit placement for comparison.
-7. Updating and removing unusable empty spaces after every placement.
-8. Deterministic item ordering.
-9. Independent final validation.
-10. Strategy-level benchmarking.
-
-Deferred until benchmark evidence shows they are needed:
-
-1. Trying several starting orders.
-2. Simulated annealing or genetic algorithms.
-3. Large-neighborhood search.
-4. Going back to change earlier placements through depth-first search or backtracking.
-5. Physical support ratio or center-of-gravity constraints.
-6. Parallel search workers.
-7. 3D-grid or voxel-based arbitrary-shape packing, including Fast Fourier Transform approaches.
-
-The design is inspired by established 3D packing techniques while remaining an independently implemented Python solver adapted to iHub-specific rules.
-
-## 5. Performance Goal
-
-The engineering target is a P95 runtime below 1,000 ms per representative order. In plain terms, the target is for 95% of representative orders to finish within one second.
-
-The solver does not need to prove the mathematically best possible packing for every order. It should find a valid plan quickly, then use any remaining runtime budget for bounded improvement only when configured.
-
-| Metric | Initial target |
-| --- | ---: |
-| Median runtime | below 250 ms |
-| P95 runtime | below 1,000 ms |
-| Validity | 100% of returned packed solutions pass independent validation |
-| Repeatability | Same inputs, configuration, and strategy return the same result |
-| Optimization priority | Minimize carton count first |
-
-First Fit and Best Fit runtime must be reported independently.
-
-## 6. Public Interface
+The reusable Python package is named `bin_packing_3d`. Users call one public function:
 
 ```python
 from bin_packing_3d import solve_order
@@ -153,72 +18,118 @@ result = solve_order(
 )
 ```
 
-`solve_order()` is the only function normal users need to call.
+A future API may call the same function, but the Python package is the product. There must not be a second implementation of the packing logic.
 
-The package `__init__.py` is the public facade and orchestrator. Internal modules are implementation details and are directly imported only by tests and developers.
+## 2. Product Goal
 
-A later FastAPI endpoint should call the same function rather than create another solver implementation.
+Given an order, a configurable carton catalogue and configurable packing rules, return a valid packing plan while minimizing carton count as the primary objective.
 
-The strategy should be configurable without changing solver code:
+Priority order for complete solutions:
 
-```python
-config = {
-    "placement_strategy": "first_fit"
-}
-```
+1. Valid solution beats invalid solution.
+2. Fewer cartons.
+3. Lower total external carton volume.
+4. Higher utilization.
+5. Stable deterministic tie break.
 
-Supported V1 values are `first_fit` and `best_fit`.
+Validity always comes before optimization.
 
-## 7. Public Input Contract
+## 3. Must Have Features
 
-The solver receives three logical inputs: order, carton catalogue, and configuration.
+The final MVP solver must:
 
-### 7.1 Order
+1. Accept the iHub style order structure and a configurable carton catalogue.
+2. Expand `Quantity > 1` into physical item instances for packing.
+3. Respect item dimensions and `VerticalRotation`.
+4. Enforce carton maximum weight.
+5. Apply configurable carton buffer to usable dimensions.
+6. Apply the configurable fill rule based on physical item count.
+7. Pack multiple items into the same carton using actual 3D coordinates.
+8. Detect carton boundary violations and item overlap.
+9. Support single carton and multiple carton solutions.
+10. Minimize carton count first.
+11. Support First Fit and Best Fit using the same packing engine.
+12. Return unpacked items when no valid packing is possible.
+13. Return explainable placements including carton, item, orientation and XYZ position.
+14. Independently validate every successful result before returning it.
+15. Measure runtime and behave deterministically for the same input and configuration.
 
-Minimum required item information:
+Not required for the core MVP:
+
+1. Exact mathematical optimization.
+2. Simulated annealing.
+3. Genetic algorithms.
+4. Deep backtracking or exhaustive search.
+5. Arbitrary angle or diagonal placement.
+6. Physical support, stability or center of gravity modelling.
+7. Web UI.
+8. Production deployment infrastructure.
+
+## 4. Input Contract
+
+### 4.1 Order
+
+Each item requires:
 
 | Field | Meaning |
 | --- | --- |
-| `OrderId` | Order identifier |
-| `OrderNo` | External order reference |
 | `Code` | Item identifier |
-| `Length`, `Width`, `Height` | Item dimensions in mm |
+| `Length`, `Width`, `Height` | Dimensions in mm |
 | `Weight` | Unit weight in kg |
 | `Quantity` | Number of physical units |
 | `VerticalRotation` | Whether the item may be laid onto another axis |
 | `UOM` | Optional descriptive unit |
 
-`Quantity > 1` is expanded so every physical unit receives its own placement.
+`OrderId` and `OrderNo` should be preserved when supplied.
 
-### 7.2 Carton catalogue
+### 4.2 Carton catalogue
+
+Each carton requires:
 
 | Field | Meaning |
 | --- | --- |
 | `Code` | Carton identifier |
-| `Length`, `Width`, `Height` | Carton dimensions in mm before configured clearance |
+| `Length`, `Width`, `Height` | External carton dimensions in mm |
 | `MaxWeight` | Maximum packed weight in kg |
 
-The carton catalogue is input and must not be hard coded.
+The catalogue is always input. Carton dimensions must not be hard coded in the engine.
 
-### 7.3 Configuration
+### 4.3 Configuration
 
-| Setting | Initial default | Functional meaning |
-| --- | ---: | --- |
-| `optimization_mode` | `bins_number` | Minimize number of cartons |
-| `placement_strategy` | `first_fit` | Baseline or comparison placement strategy |
-| `bin_max_fill_check_min_item_qty` | 6 | Fill cap activates above this physical item count |
-| `bin_max_fill_pct` | 70 | Maximum volume fill after the threshold |
-| `bin_buffer.length` | 0 mm | Reserved length clearance |
-| `bin_buffer.width` | 0 mm | Reserved width clearance |
-| `bin_buffer.height` | 6 mm | Reserved height clearance |
-| `max_runtime_ms` | 900 ms | Solver search deadline |
-| `max_empty_spaces` | 200 | Initial safety cap on retained empty rectangular spaces |
-| `max_candidate_positions_per_space` | 8 | Initial safety cap on positions checked inside each empty space |
-| `deterministic` | true | Same input and settings should return the same result |
+Initial defaults:
 
-The safety caps are tunable and must be benchmarked before being treated as stable defaults.
+```python
+{
+    "optimization_mode": "bins_number",
+    "placement_strategy": "first_fit",
+    "bin_max_fill_check_min_item_qty": 6,
+    "bin_max_fill_pct": 70,
+    "bin_buffer": {
+        "length": 0,
+        "width": 0,
+        "height": 6,
+    },
+    "max_runtime_ms": 900,
+    "deterministic": True,
+}
+```
 
-## 8. Conceptual Package Structure
+Required behavior:
+
+1. If physical item count is at or below `bin_max_fill_check_min_item_qty`, the fill cap does not restrict the carton.
+2. If physical item count is above the threshold, total packed item volume must not exceed `bin_max_fill_pct` of usable carton volume.
+3. Buffer reduces usable carton dimensions before placement checks.
+4. Unknown strategies or invalid configuration values must be rejected clearly.
+
+## 5. Allowed Item Orientations
+
+For `VerticalRotation = true`, generate every unique 90 degree orientation from the item's three dimensions, up to six orientations.
+
+For `VerticalRotation = false`, the original height must remain the vertical Z dimension. Length and width may swap horizontally.
+
+Duplicate orientations must be removed and ordering must be stable.
+
+## 6. Simplified Package Structure
 
 ```text
 src/
@@ -226,465 +137,409 @@ src/
   bin_packing_3d/
     __init__.py
     models.py
-    normalize.py
-    orientation.py
-    feasibility.py
-    geometry.py
-    spaces.py
-    placement.py
-    strategies.py
-    single_box.py
-    multi_box.py
-    improve.py
+    rules.py
+    packing.py
     validate.py
-    result.py
 
 tests/
-  test_normalize.py
-  test_orientation.py
-  test_feasibility.py
-  test_geometry.py
-  test_spaces.py
-  test_placement.py
-  test_strategies.py
-  test_single_box.py
-  test_multi_box.py
-  test_improve.py
+  test_rules.py
+  test_packing.py
   test_validate.py
-  test_solve_order.py
+  test_solver.py
   fixtures/
 ```
 
-`spaces.py` owns creation, splitting, candidate-position generation, and cleanup of the remaining empty spaces.
+Only five implementation files are required.
 
-`placement.py` owns shared placement-candidate generation and validity checks.
+### `__init__.py`
 
-`strategies.py` owns the difference between First Fit and Best Fit so geometry is not duplicated.
+Public facade and orchestrator.
 
-## 9. End-to-End Functional Flow
+Owns `solve_order()` and coordinates:
+
+1. input normalization,
+2. rule validation,
+3. First Fit or Best Fit selection,
+4. single carton attempt,
+5. multiple carton fallback,
+6. final validation,
+7. result formatting and runtime.
+
+It must not implement geometry itself.
+
+### `models.py`
+
+Contains the small internal data structures used by the solver, for example:
+
+`Item`, `Box`, `Orientation`, `Position`, `Placement`, `EmptySpace`, `PackedBox`, `PackingPlan`, `PackingConfig`.
+
+Models hold data and simple derived properties only.
+
+### `rules.py`
+
+Owns all non search business rules:
+
+1. normalize external input,
+2. expand quantities,
+3. validate positive dimensions, weight and quantity,
+4. normalize rotation flags,
+5. calculate usable carton dimensions after buffer,
+6. calculate active fill limit,
+7. generate allowed orientations,
+8. perform quick carton rejection by weight, fill and individual item fit,
+9. sort candidate cartons from smaller to larger usable volume.
+
+This keeps iHub specific operational rules separate from the placement algorithm.
+
+### `packing.py`
+
+Owns the complete packing engine.
+
+This one module contains related geometry and search operations rather than splitting them across many files:
+
+1. boundary checks,
+2. overlap checks,
+3. remaining empty rectangular spaces,
+4. candidate position generation,
+5. deterministic item ordering,
+6. First Fit candidate selection,
+7. Best Fit candidate scoring,
+8. one carton packing attempt,
+9. single carton search,
+10. multiple carton construction,
+11. optional bounded improvement introduced only in MVP 3.
+
+Private helper functions are encouraged. Separate Python files are not required for every helper concept.
+
+### `validate.py`
+
+Independent validator for completed plans.
+
+It must verify:
+
+1. every physical item is accounted for exactly once,
+2. every packed orientation is allowed,
+3. every placement is inside usable carton boundaries,
+4. no two items overlap,
+5. weight limits are respected,
+6. fill rules are respected,
+7. buffer adjusted dimensions are respected,
+8. result status and carton counts are internally consistent.
+
+A plan that fails validation cannot be returned as success.
+
+## 7. Core Packing Logic
+
+The solver uses rectangular 3D items and cartons aligned to X, Y and Z axes.
+
+The V1 search representation is **remaining empty rectangular spaces**: after an item is placed, the solver tracks the useful rectangular regions still available inside that carton.
+
+A **candidate position** is a useful corner or boundary position where the next item may be tested. The solver does not scan every possible coordinate.
+
+The packing engine must be deterministic.
+
+### 7.1 Item ordering
+
+Before a carton packing attempt, physical items are ordered by:
+
+1. restricted rotation first,
+2. larger volume first,
+3. larger longest dimension first,
+4. stable item instance identifier.
+
+Both First Fit and Best Fit use exactly the same item order.
+
+### 7.2 Placement validity
+
+A candidate placement is valid only when:
+
+1. the orientation is allowed,
+2. all coordinates are non negative,
+3. the item remains within usable carton dimensions,
+4. the item does not overlap an already packed item,
+5. carton weight remains within `MaxWeight`,
+6. the fill rule remains satisfied.
+
+Touching faces, edges or corners is allowed and is not overlap.
+
+### 7.3 Remaining empty spaces
+
+A fresh carton starts with one empty space equal to its usable dimensions.
+
+After each placement:
+
+1. affected empty spaces are split around the placed item,
+2. zero volume spaces are removed,
+3. duplicate spaces are removed,
+4. spaces fully contained in another retained space are removed,
+5. spaces that cannot fit any remaining item may be removed,
+6. retained spaces are kept in stable lower position first order.
+
+The implementation may use standard maximal space style splitting, but the public contract is the behavior above rather than a specific academic implementation.
+
+## 8. First Fit and Best Fit
+
+First Fit and Best Fit must share:
+
+1. item order,
+2. allowed orientations,
+3. remaining empty spaces,
+4. candidate positions,
+5. validity checks,
+6. carton rules,
+7. final validator.
+
+The only intended difference is how a valid candidate is selected.
+
+### First Fit
+
+For each item, inspect candidate placements in deterministic order and accept the first valid candidate.
+
+It must stop evaluating candidates once a valid placement is accepted.
+
+### Best Fit
+
+For each item, inspect the same valid candidate placements and choose the preferred candidate using this fixed order:
+
+1. lower resulting top height,
+2. smaller wasted remainder in the chosen empty space,
+3. lower Z coordinate,
+4. lower Y coordinate,
+5. lower X coordinate,
+6. stable orientation tie break.
+
+The scoring rule may be revised only through an explicit product spec change after benchmark evidence.
+
+## 9. Single Carton and Multiple Carton Logic
+
+### 9.1 Quick rejection
+
+Before expensive 3D placement, reject a candidate carton when any of these are definitely impossible:
+
+1. total order weight exceeds the carton limit for a one carton attempt,
+2. total order volume exceeds the active allowed fill volume,
+3. any physical item cannot fit individually in any allowed orientation.
+
+Passing these checks does not prove that the order fits. It only means the carton is worth attempting geometrically.
+
+### 9.2 Single carton first
+
+Try viable cartons in ascending usable volume.
+
+For each carton, run the full 3D packing attempt using the configured strategy.
+
+Stop at the first valid one carton solution because the primary objective is carton count and the cartons are already ordered from smaller to larger.
+
+### 9.3 Multiple carton fallback
+
+Only when no one carton solution works:
+
+1. process physical items in the same deterministic difficult first order,
+2. try to add an item to an already open carton,
+3. confirm the affected carton can still be packed geometrically,
+4. if no open carton can accept it, open the smallest viable carton that can accept it,
+5. continue until all items are packed or an item cannot fit any carton.
+
+When more than one existing carton can accept an item, prefer the carton that avoids opening a new carton and then the smaller resulting unused volume.
+
+Every carton in a multiple carton solution must independently satisfy weight, fill, buffer, rotation and geometry rules.
+
+## 10. End to End Flow
 
 ```mermaid
 flowchart TD
-    A[Order + carton catalogue + configuration]
-    B[Normalize and validate input]
-    C[List allowed item orientations]
-    D[Reject cartons that are definitely impossible]
-    E[Try one carton first, smallest possible first]
-    F[Track remaining empty rectangular spaces]
-    G[Generate useful candidate positions]
-    H[Check carton boundaries and item overlap]
-    I{Placement strategy}
-    J[First Fit: take first valid position]
-    K[Best Fit: compare valid positions and choose preferred one]
-    L[Place item and update remaining empty spaces]
-    M{All items packed?}
-    N[Try next possible single carton]
-    O[Build multiple-carton plan]
-    P[Independently validate final plan]
-    Q[Return result]
+    A[Order + cartons + configuration]
+    B[Normalize input and apply packing rules]
+    C[Reject cartons that are definitely impossible]
+    D[Try smallest viable carton first]
+    E[Place items in 3D with First Fit or Best Fit]
+    F{All items fit in one carton?}
+    G[Build multi carton plan using the same packing engine]
+    H[Independently validate the final plan]
+    I[Return cartons, placements, failures and runtime]
 
-    A --> B --> C --> D --> E --> F --> G --> H --> I
-    I --> J --> L
-    I --> K --> L
-    L --> M
-    M -->|No, next item| G
-    M -->|Item cannot be placed| N
-    N -->|Another carton available| E
-    N -->|No single carton works| O
-    M -->|Yes| P
-    O --> P --> Q
+    A --> B --> C --> D --> E --> F
+    F -->|Yes| H
+    F -->|No| G --> H
+    H --> I
 ```
 
-The strategy changes how a valid placement is selected. It does not change the business rules or the geometry checks.
+This is intentionally the whole system view. Helper functions should not become separate architecture boxes unless they become independently meaningful components.
 
-## 10. Component Specifications
+## 11. MVP Sequence
 
-### 10.1 `__init__.py`: Public Orchestrator
+### MVP 1: Complete First Fit Solver
 
-Responsibility: expose `solve_order()` and coordinate the complete solver flow without implementing geometry.
+Purpose: deliver the smallest solver that is already useful end to end.
 
-Functional behavior:
+Must include:
 
-1. Start runtime measurement and establish the deadline.
-2. Normalize external input.
-3. Validate input structures.
-4. Run quick carton rejection checks.
-5. Resolve the configured placement strategy.
-6. Attempt the single-carton solver first.
-7. Call the multiple-carton solver only when no valid one-carton solution exists.
-8. Run bounded improvement only when configured and runtime remains.
-9. Independently validate the final plan.
-10. Format and return the result.
-11. Never return an invalid plan as success.
+1. public `solve_order()` interface,
+2. input validation and normalization,
+3. quantity expansion,
+4. rotation handling,
+5. buffer, fill and weight rules,
+6. quick carton rejection,
+7. 3D boundary and overlap checks,
+8. remaining empty space tracking,
+9. deterministic First Fit placement,
+10. smallest viable single carton search,
+11. multiple carton fallback,
+12. unpackable item reporting,
+13. independent final validation,
+14. JSON serializable output,
+15. runtime measurement,
+16. deterministic tests.
 
-Tests must verify call ordering, strategy propagation, single-carton short-circuiting, multiple-carton fallback, deadline propagation, validation before success, repeatable output, and failure propagation.
+Acceptance gate: the solver can process representative orders from input to validated result without Best Fit or any improvement layer.
 
-### 10.2 `models.py`: Internal Data Models
+### MVP 2: Best Fit Comparison
 
-Responsibility: define shared data structures such as `Item`, `Box`, `Orientation`, `Position`, `Placement`, `EmptySpace`, `PackedBox`, `PackingPlan`, `PackingConfig`, and `PackingResult`.
+Purpose: answer whether extra placement evaluation is worth the runtime cost.
 
-Models contain data and small derived properties only. Solver decisions do not belong in model classes.
+Add only:
 
-Tests cover volume calculations, usable carton dimensions, serialization, equality required for repeatable comparison, and invalid values.
+1. `placement_strategy = "best_fit"`,
+2. Best Fit candidate scoring,
+3. strategy parity tests proving both strategies use the same candidate generator and constraints,
+4. benchmark report comparing First Fit and Best Fit.
 
-### 10.3 `normalize.py`: Input Normalization
+Required benchmark metrics:
 
-Functional behavior:
+1. median runtime,
+2. P95 runtime,
+3. maximum runtime,
+4. valid full order packing rate,
+5. carton count,
+6. exact reference carton count match rate,
+7. total carton volume,
+8. utilization,
+9. orders where First Fit and Best Fit differ.
 
-1. Validate dimensions and weight are positive numeric values.
-2. Validate quantity is a positive integer.
-3. Expand `Quantity > 1` into physical item instances.
-4. Preserve source traceability.
-5. Normalize `VerticalRotation` to boolean.
-6. Apply defaults only when settings are missing.
-7. Reject cartons whose usable dimensions become zero or negative after clearance is applied.
-8. Reject duplicate carton codes.
-9. Reject unknown placement strategies.
+No post packing improvement is allowed during this comparison because it would hide the difference between the two strategies.
 
-Tests cover valid input, quantity expansion, malformed dimensions, invalid quantity, missing fields, boolean normalization, duplicate carton codes, strategy normalization, defaults, and invalid clearance effects.
+### MVP 3: Bounded Improvement
 
-### 10.4 `orientation.py`: Allowed Item Orientations
+Purpose: improve difficult cases only if MVP 2 shows there is useful headroom.
 
-For `VerticalRotation = true`, generate every unique 90-degree orientation formed by permuting length, width, and height, up to six orientations.
+Permitted additions:
 
-For `VerticalRotation = false`, the original height remains the vertical Z dimension. Length and width may swap horizontally, producing one or two unique orientations.
+1. a small fixed set of alternative item orderings,
+2. attempt to eliminate the least used carton by repacking its items into the remaining cartons,
+3. retain only candidates that improve the shared complete plan objective,
+4. stop when `max_runtime_ms` is reached,
+5. always retain the best already validated plan.
 
-Duplicate orientations must be removed and results must have a stable order. Orientation results may be cached by item dimensions and rotation rule because equivalent items reuse the same orientation set.
+Do not add simulated annealing, genetic algorithms or deep backtracking unless a later benchmark creates a clear requirement.
 
-Tests cover six-orientation rectangular items, repeated dimensions, cubes, upright-only items, horizontal swaps, duplicate removal, caching equivalence, and stable ordering.
+MVP 3 is optional. If MVP 1 or MVP 2 already meets the project performance and packing quality goals, the project may stop there.
 
-### 10.5 `feasibility.py`: Quick Carton Rejection Checks
+## 12. Output Contract
 
-For each candidate carton:
-
-1. Calculate usable dimensions after clearance.
-2. Check total order weight for a one-carton attempt.
-3. Calculate the active fill limit from physical item count.
-4. Reject when total item volume exceeds allowed usable volume.
-5. Confirm every physical item can individually fit in at least one allowed orientation.
-6. Keep only cartons passing all quick checks.
-7. Sort surviving cartons by usable carton volume ascending with stable carton-code tie break.
-
-Passing these checks does not prove the items fit together. It only proves the carton is worth attempting in the 3D placement engine.
-
-Tests cover weight, fill, clearance, item dimensional fit, rotation restrictions, carton ordering, and the six-item threshold rule.
-
-### 10.6 `geometry.py`: Boundary and Overlap Checks
-
-Required concepts:
-
-```python
-fits_inside_box(...)
-boxes_overlap(...)
-placement_collides(...)
-```
-
-`fits_inside_box()` confirms a placement remains within usable carton boundaries.
-
-`boxes_overlap()` treats items as rectangular 3D boxes. Two items overlap only when their occupied ranges overlap on X, Y, and Z simultaneously. Touching faces, edges, or corners are valid and are not overlap.
-
-No soft deformation, diagonal placement, or free-angle rotation is supported in V1.
-
-Tests cover containment, boundary touching, separation on each axis, true overlap, face and edge contact, negative coordinates, and clearance-adjusted boundaries.
-
-### 10.7 `spaces.py`: Remaining Empty Space Management
-
-Responsibility: maintain the remaining usable rectangular spaces after each placement.
-
-Functional behavior:
-
-1. Start with one empty rectangular space equal to the entire usable carton.
-2. When an item is placed, identify empty spaces intersected by that placement.
-3. Replace affected spaces with the remaining rectangular subspaces created around the placement.
-4. Discard zero- or negative-volume spaces.
-5. Remove duplicate spaces.
-6. Remove spaces fully contained inside another retained space.
-7. Remove spaces that cannot fit any remaining item in any allowed orientation.
-8. Sort spaces in a stable order, preferring lower positions and then stable coordinate order.
-9. Apply `max_empty_spaces` only after safe cleanup.
-10. Generate candidate positions from useful space corners and boundaries formed by already placed items.
-11. Remove duplicate candidate positions and discard positions that cannot hold the tested orientation inside the current empty space.
-
-Tests must cover initial space creation, splitting after a placement, duplicate removal, contained-space removal, fit-based removal, stable ordering, candidate-position generation, and safety-cap behavior.
-
-### 10.8 `placement.py`: Shared 3D Placement Engine
-
-Responsibility: generate valid placement candidates using shared geometry and remaining-empty-space behavior.
-
-Functional behavior:
-
-1. Create the initial empty rectangular space through `spaces.py`.
-2. Sort difficult items first. V1 priority is restricted rotation, then larger volume, then larger longest dimension, then stable item ID.
-3. For the current item, iterate retained empty spaces in a stable order.
-4. For each space, iterate allowed orientations in a stable order.
-5. Generate bounded candidate positions in a stable order.
-6. Reject candidates outside the usable carton.
-7. Reject candidates overlapping placed items.
-8. Pass valid candidate placements to the configured strategy.
-9. Place the strategy-selected candidate.
-10. Update and clean up remaining empty spaces.
-11. Continue until every item is placed or no valid candidate exists.
-12. Return failure for the current packing attempt when an item cannot be placed.
-
-The shared engine must not contain strategy-specific shortcuts that make First Fit and Best Fit receive different candidate options.
-
-Required placement fixtures:
-
-1. One item fits at origin.
-2. Two `15 x 10 x 10` items fit in a `20 x 20 x 20` carton without overlap.
-3. One `30 x 10 x 20` item fails in a `20 x 20 x 20` carton regardless of spare volume.
-4. A case requiring rotation succeeds when rotation is allowed.
-5. The same case fails when upright-only rules prohibit the required rotation.
-6. Repeated execution with the same strategy returns identical placements.
-
-### 10.9 `strategies.py`: First Fit and Best Fit
-
-Responsibility: select one placement from the valid candidates exposed by `placement.py`.
-
-#### First Fit
-
-1. Consume candidates in the shared stable order.
-2. Return immediately on the first valid candidate.
-3. Do not continue searching after a valid candidate is accepted.
-4. Do not calculate Best Fit scoring fields unless required for diagnostics.
-
-Tests must prove that First Fit stops after the first valid candidate, preserves stable ordering, and does not evaluate later candidates unnecessarily.
-
-#### Best Fit
-
-1. Consume all valid candidates within configured limits.
-2. Compare each candidate using the agreed priority order.
-3. Choose the preferred candidate.
-
-Initial Best Fit preference order:
-
-1. lower resulting top height,
-2. greater contact with carton boundaries or already placed items,
-3. smaller wasted remainder in the chosen empty space,
-4. lower vertical coordinate,
-5. lower depth coordinate,
-6. lower horizontal coordinate,
-7. stable orientation and position tie break.
-
-Tests must prove that Best Fit evaluates the same candidate set First Fit could encounter, selects the expected candidate in constructed cases, and returns the same result for repeated runs with the same input.
-
-#### Strategy equivalence contract
-
-For a given packing state, item, configuration, and remaining-empty-space set:
-
-1. Both strategies use the same ordered candidate generator.
-2. Both use the same validity checks.
-3. Both use the same business constraints.
-4. The only intended difference is when candidate evaluation stops and how a valid candidate is selected.
-
-This contract is essential for a fair benchmark.
-
-### 10.10 `single_box.py`: Single-Carton Solver
-
-1. Receive only cartons that passed quick rejection checks.
-2. Try cartons from smallest usable volume to largest.
-3. Call the shared placement engine using the configured strategy.
-4. Stop at the first valid carton because any one-carton solution satisfies the primary carton-count objective.
-5. Return failure only after all viable one-carton candidates fail.
-
-First Fit and Best Fit must be runnable independently against the same order and carton catalogue.
-
-Tests prove smallest valid carton selection, geometric fallback to the next carton, strategy propagation, and multiple-carton avoidance when a one-carton result exists.
-
-### 10.11 `multi_box.py`: Multiple-Carton Construction
-
-1. Process difficult items first.
-2. Try to insert remaining items into existing open cartons before opening another carton.
-3. Repack an affected carton through the shared placement engine with the configured strategy after a proposed insertion rather than trusting volume alone.
-4. When no open carton accepts an item, open the smallest possible carton that can accept it.
-5. Continue until all items are packed or an item cannot fit any candidate carton.
-6. Return unpacked items explicitly.
-7. Enforce weight, fill, clearance, rotation, and geometry rules for every carton.
-
-Tests cover two-carton success, reuse of an open carton, weight-driven split, fill-driven split, geometry-driven split, unpackable items, strategy propagation, and stable carton assignment.
-
-### 10.12 `improve.py`: Optional Bounded Improvement
-
-Improvement starts only after a valid plan exists and must remain optional during the First Fit versus Best Fit baseline comparison.
-
-For the initial strategy benchmark, improvement should be disabled so placement-strategy effects are not hidden by later optimization.
-
-After the baseline comparison is complete, allowed bounded improvements may include:
-
-1. a small fixed set of alternative item orders,
-2. trying to remove the least-used carton by repacking its items into remaining cartons,
-3. accepting a candidate only when it improves the shared objective order,
-4. stopping immediately at the deadline,
-5. always retaining the best already validated plan.
-
-Tests verify that improvement never worsens the objective, deadline checks stop attempts, invalid candidates are rejected, carton elimination works on a constructed fixture, and tie resolution is stable.
-
-### 10.13 `validate.py`: Independent Final Validator
-
-For every final plan:
-
-1. Every physical item appears exactly once across packed and unpacked outputs.
-2. No unknown item appears.
-3. Every packed orientation is permitted.
-4. Every placement remains inside usable carton boundaries.
-5. No two placements overlap.
-6. Packed weight is at or below maximum weight.
-7. Volume fill respects the configured threshold rule.
-8. Clearance-adjusted dimensions are respected.
-9. Carton count and result status are internally consistent.
-
-The validator must not trust assumptions made by the placement or strategy modules. A plan failing validation cannot be returned with success status.
-
-Each rule requires one passing test and one deliberately corrupted failing test.
-
-### 10.14 `result.py`: Output Formatting
-
-Required public result information:
+The returned object must be JSON serializable and include at minimum:
 
 | Level | Required fields |
 | --- | --- |
-| Order | order identifier, status, carton count, runtime, objective, placement strategy |
-| Carton | code, usable dimensions, packed weight, used-space percentage |
-| Placement | item identifier, source code, chosen orientation, x, y, z |
-| Failure | unpacked physical items and reason where known |
+| Order | order id, order number when supplied, status, carton count, runtime, strategy |
+| Carton | carton code, usable dimensions, packed weight, used space percentage |
+| Placement | physical item instance id, source item code, orientation, x, y, z |
+| Failure | unpacked physical items and reason when known |
 
-Output must be JSON serializable without FastAPI or another framework.
+The output should expose enough information to independently reconstruct and validate the packing arrangement.
 
-Tests verify serialization, coordinate preservation, quantity traceability, strategy reporting, stable field names, no internal-object leakage, and correct runtime/status output.
+## 13. Required Tests
 
-## 11. Objective Ordering
+Tests should target behavior rather than mirror every private helper function.
 
-All modules comparing complete plans use the same priority order.
+### `test_rules.py`
 
-| Priority | Comparison |
-| ---: | --- |
-| 1 | Valid plan beats invalid plan |
-| 2 | Fewer cartons |
-| 3 | Lower total external carton volume |
-| 4 | Higher space utilization |
-| 5 | Stable tie break by carton codes and placements |
+Must cover:
 
-## 12. Unit Testing Strategy
+1. quantity expansion,
+2. invalid dimensions, weight and quantity,
+3. rotation normalization,
+4. allowed orientations,
+5. upright only behavior,
+6. buffer calculation,
+7. fill threshold behavior,
+8. weight rejection,
+9. individual item fit rejection,
+10. stable carton ordering.
 
-Unit tests are part of the product contract rather than final cleanup.
+### `test_packing.py`
 
-| Layer | Purpose | Normal CI |
-| --- | --- | --- |
-| Pure unit tests | One function or module contract | Yes |
-| Component tests | Multiple internal functions within one component | Yes |
-| End-to-end tests | `solve_order()` through full internal flow | Yes |
-| Strategy-parity tests | Prove both strategies share the same candidate options and constraints | Yes |
-| Regression fixtures | Known edge cases that previously failed | Yes |
-| Benchmark comparison | Historical iHub records and runtime metrics | Separate benchmark job |
+Must cover:
 
-Required cross-cutting tests:
+1. one item fits at origin,
+2. two `15 x 10 x 10` items fit inside one `20 x 20 x 20` carton,
+3. one `30 x 10 x 20` item fails inside a `20 x 20 x 20` carton,
+4. required rotation succeeds when allowed,
+5. the same case fails when rotation is restricted,
+6. touching items do not count as overlap,
+7. true overlap is rejected,
+8. smallest valid one carton is chosen,
+9. geometry can force fallback to a larger carton,
+10. multi carton packing succeeds when one carton is impossible,
+11. weight can force a carton split,
+12. fill rule can force a carton split,
+13. unpackable items are returned,
+14. First Fit stops at the first valid candidate,
+15. Best Fit evaluates the shared valid candidate set,
+16. repeated runs are deterministic.
 
-1. Same input and strategy produce the same output.
-2. No returned successful placement contains overlap.
-3. No placement exceeds carton boundaries.
-4. Upright-only items preserve their vertical axis.
-5. Packed weight never exceeds carton maximum.
-6. Fill policy uses physical item count after quantity expansion.
-7. One carton is always preferred over two valid cartons.
-8. Unpackable items are reported rather than dropped.
-9. Deadline exhaustion returns the best valid plan already found.
-10. Final validation rejects a deliberately corrupted solver result.
-11. Empty-space cleanup never leaves duplicate or fully contained spaces in constructed fixtures.
-12. Placement search remains bounded by configured empty-space and candidate-position limits.
-13. First Fit stops on the first valid candidate.
-14. Best Fit evaluates the available valid candidates before selection.
-15. Both strategies apply identical geometry and business constraints.
+### `test_validate.py`
 
-## 13. Development Sequence and Acceptance Gates
+Each final validation rule needs both a passing case and a deliberately corrupted failing case.
 
-| Phase | Components | Acceptance gate |
-| --- | --- | --- |
-| 1 | models, normalize | Internal data contracts stable and normalization tests pass |
-| 2 | orientation, geometry | Rotation, bounds, and overlap fully tested |
-| 3 | feasibility | Impossible cartons safely removed |
-| 4 | spaces | Empty-space creation, update, candidate-position generation, and cleanup tested |
-| 5 | placement | Shared candidate engine passes constructed geometry fixtures |
-| 6 | strategies | First Fit and Best Fit pass parity and selection tests |
-| 7 | single_box | Smallest valid one carton selected reliably under both strategies |
-| 8 | multi_box | Multiple-carton construction and failure handling work under both strategies |
-| 9 | validate, result | Independent validation and stable output work |
-| 10 | `solve_order()` | Full orchestrator and end-to-end tests pass |
-| 11 | strategy benchmark | First Fit versus Best Fit runtime and packing tradeoff documented |
-| 12 | improve | Bounded improvement added only after baseline strategy comparison |
-| 13 | final benchmark | Historical comparison and runtime profile documented |
+### `test_solver.py`
 
-No phase is complete only because code exists. Its functional contract and tests must pass first.
+Must cover:
 
-## 14. Benchmarking Against iHub
+1. full First Fit end to end success,
+2. full Best Fit end to end success after MVP 2,
+3. single carton short circuit,
+4. multi carton fallback,
+5. invalid input failure,
+6. unpackable result,
+7. validation before success,
+8. runtime and strategy reported,
+9. JSON serializable result,
+10. same input and strategy return the same logical result.
 
-The historical iHub output is a reference benchmark rather than mathematical ground truth.
+## 14. Benchmarking
 
-For every benchmark order, run First Fit and Best Fit independently with bounded improvement disabled.
+Historical iHub outputs are a reference benchmark, not mathematical ground truth.
 
-Record:
+A solver result is acceptable when it is valid and follows the shared objective even when its exact placements or carton choice differ from the historical result.
 
-| Metric | Purpose |
-| --- | --- |
-| Valid solution rate | Correctness baseline |
-| Carton count | Primary optimization outcome |
-| Average cartons per order | Overall carton consumption |
-| Orders where Best Fit uses fewer cartons | Direct strategy benefit |
-| Orders where First Fit uses fewer cartons | Detect regressions and unexpected behavior |
-| Exact historical carton count match | Reference comparison |
-| Total external carton volume | Secondary packing efficiency |
-| Space utilization | Percentage of carton volume occupied by packed items |
-| Median runtime | Typical speed |
-| P95 runtime | Time within which 95% of orders finish |
-| Maximum runtime | Difficult-case behavior |
-| Runtime difference | Extra time paid for Best Fit |
-| Item-count band | Identify where strategies diverge |
-| Failure reason | Diagnose unsolved orders |
+Primary benchmark question:
 
-### 14.1 Primary comparison
+**Can the solver produce valid plans with competitive carton count at real time latency?**
 
-The strategy comparison should answer:
+Initial engineering target:
 
-> How much additional runtime does Best Fit require, and how often does that additional work reduce carton count or carton volume compared with First Fit?
+| Metric | Target |
+| --- | ---: |
+| Successful returned plan validity | 100% |
+| Median runtime | below 250 ms |
+| P95 runtime | below 1,000 ms |
+| Repeatability | same logical result for same input and strategy |
 
-Do not select the default strategy before this evidence exists.
+First Fit and Best Fit must always be reported separately.
 
-### 14.2 Complexity bands
+## 15. Development Rule for Codex
 
-At minimum, compare outcomes by physical item count:
+Codex should implement from this specification, not invent new product behavior.
 
-1. 1 to 3 items.
-2. 4 to 6 items.
-3. 7 to 10 items.
-4. 11 to 15 items.
-5. More than 15 items.
+Preferred implementation sequence:
 
-Additional bands may be added based on the observed v2 distribution.
+1. create the five file package skeleton and tests,
+2. implement MVP 1 completely,
+3. run tests and benchmark representative fixtures,
+4. implement MVP 2 without changing shared geometry behavior,
+5. run the First Fit versus Best Fit benchmark,
+6. implement MVP 3 only when benchmark results justify it.
 
-### 14.3 Benchmark-led escalation rule
+A one shot implementation is acceptable if all tests and contracts are implemented together, but review and commits should still be separated by MVP so regressions are easy to identify.
 
-Do not add complex search techniques because they sound sophisticated. Add them only when benchmark evidence identifies a meaningful failure mode.
-
-Escalation order:
-
-1. Compare First Fit and Best Fit cleanly.
-2. Tune deterministic item ordering.
-3. Tune Best Fit scoring.
-4. Tune candidate-position generation and safe empty-space limits.
-5. Try several fixed starting orders only if needed.
-6. Consider seeded randomized trials if fixed alternatives are insufficient.
-7. Consider changing earlier placements through backtracking only for a clearly identified difficult subset.
-8. Consider parallel search only if search quality is good but runtime is the bottleneck.
-
-Every escalation requires its own tests and benchmark comparison.
-
-## 15. MVP Boundaries
-
-Included: rectangular items, configurable carton catalogue, quantity expansion, orientation restrictions, carton clearance, weight limits, fill limits, remaining-empty-space-based placement, First Fit baseline, Best Fit comparison, multiple-carton packing, explicit XYZ coordinates, repeatable rule-based strategies, independent validation, and benchmark measurement.
-
-Not included initially: arbitrary-angle rotation, deformable products, center-of-gravity optimization, support ratio, crush resistance, fragile-item stacking rules, load-bearing physics, robotic insertion planning, 3D-grid arbitrary-shape packing, randomized search, or guaranteed mathematically best packing.
-
-## 16. Definition of Done
-
-The MVP is functionally complete when `solve_order()` can process the agreed iHub-shaped inputs, run either First Fit or Best Fit through the same shared geometry engine, produce repeatable and independently validated single- or multiple-carton results, return XYZ placements and unpacked items where appropriate, pass the full automated test suite, and document the measured First Fit versus Best Fit tradeoff on the representative benchmark dataset.
-
-Implementation decisions that change any functional behavior described here must update this specification first, then update tests, then update code.
+Do not split private helper functions into new modules unless the existing file has become genuinely difficult to understand. Simplicity is a product requirement for this project.

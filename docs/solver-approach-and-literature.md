@@ -89,10 +89,10 @@ The initial deterministic order should prioritize harder items first, using the 
 
 Other item orders can later be compared without changing the geometry engine, for example:
 
-- larger volume first,
-- longest dimension first,
-- largest face first,
-- rotation-restricted items first.
+1. larger volume first,
+2. longest dimension first,
+3. largest face first,
+4. rotation-restricted items first.
 
 The choice should be benchmarked rather than assumed.
 
@@ -100,12 +100,12 @@ The choice should be benchmarked rather than assumed.
 
 A placement is valid only when all required checks pass:
 
-- item dimensions remain inside the usable carton dimensions,
-- the chosen item orientation is allowed,
-- the item does not overlap anything already packed,
-- carton weight stays within the maximum,
-- the configured fill rule is respected,
-- the configured carton clearance is respected.
+1. item dimensions remain inside the usable carton dimensions,
+2. the chosen item orientation is allowed,
+3. the item does not overlap anything already packed,
+4. carton weight stays within the maximum,
+5. the configured fill rule is respected,
+6. the configured carton clearance is respected.
 
 A carton should never be treated as valid merely because enough total volume remains.
 
@@ -163,6 +163,8 @@ The main experimental question is:
 
 > How much additional runtime does Best Fit require, and how often does that additional search reduce carton count or carton volume compared with First Fit?
 
+The supplied iHub service already operates at sub-second latency on the development sample, so this project treats sub-second response time as an engineering requirement rather than using minute-scale academic runtimes as a target. Packing quality must therefore be evaluated together with latency.
+
 ## 8. Literature Rationale
 
 Research on three-dimensional bin packing shows that exact optimization can become computationally difficult as the number of items and possible arrangements grows. Practical systems therefore often use constructive packing strategies that build a solution one item at a time.
@@ -173,11 +175,21 @@ Lodi, Martello and Vigo study practical strategies for three-dimensional bin pac
 
 Crainic, Perboli and Tadei study **Extreme Point-Based Heuristics**. In the language used by this project, the useful takeaway is to test meaningful **candidate positions** rather than every coordinate in the carton.
 
+### Joung and Noh: direct inspiration for the constructive flow
+
+Joung and Noh (2014) developed an intelligent 3D packing method based on how experienced workers approach packing. Their method separates the problem into grouping, sequencing, orientation and loading. The sequencing logic loads larger parts before smaller parts, while the loading logic uses a Bottom-Left-Back-Fill approach that starts from a bottom corner and searches for collision-free positions.
+
+This paper is a direct conceptual inspiration for our solver flow: order difficult or large items early, restrict the orientation search, place items from useful low corner positions, check collisions, and retry alternative placements when a placement fails.
+
+We do **not** copy the paper's implementation. Their system handles free-form 3D CAD geometry and performs shape grouping, repeated orientation comparison, CAD movement and collision checking. Our iHub problem is materially simpler because the input objects are rectangular cuboids with explicit length, width and height. We therefore keep the constructive ideas while implementing a much lighter bounded search suitable for real-time cartonization.
+
+The runtime results in the paper are also not a target for this project. In its SAE J1100 comparison, the proposed method reported 35 loaded pieces with 0.8138 efficiency in 27 minutes, while the compared genetic algorithm reported 21 loaded pieces with 0.6974 efficiency in 68 minutes. Those results demonstrate the tradeoff between packing quality and computation for complex CAD packing, but a 27-minute solver would be unusable for the iHub use case. Our solver must remain sub-second for representative orders, and First Fit versus Best Fit is specifically intended to quantify how much packing improvement can be purchased without sacrificing that latency requirement.
+
 The project also reviewed `Xebet/3d-packing-simulator`, which demonstrates a practical implementation using remaining empty rectangular spaces, candidate placement positions, multiple orientations, overlap checks and independent validation. The project does not copy that implementation wholesale; it uses those established ideas as references for an independently developed Python solver with iHub-specific rules.
 
 The MIT Scalable Spectral Packing work provides another useful conceptual comparison: order the objects, search for collision-free placements, score placement quality and repeat. Its voxel-grid and Fast Fourier Transform approach is aimed at more general 3D shapes and is therefore not selected for this rectangular-item MVP.
 
-These sources support the current design choice: use a simple, explainable shared geometry engine first, compare First Fit and Best Fit experimentally, and add more complex search only when measured results justify it.
+Together, these sources support the current design choice: use a simple, explainable shared geometry engine first, compare First Fit and Best Fit experimentally, preserve a strict sub-second runtime target, and add more complex search only when measured results justify it.
 
 ## References
 
@@ -186,3 +198,4 @@ These sources support the current design choice: use a simple, explainable share
 3. Crainic, T. G., Perboli, G., & Tadei, R. (2008). Extreme Point-Based Heuristics for Three-Dimensional Bin Packing. *INFORMS Journal on Computing, 20*(3), 368 to 384. https://doi.org/10.1287/ijoc.1070.0250
 4. Xebet. *3d-packing-simulator*. GitHub repository: https://github.com/Xebet/3d-packing-simulator
 5. MIT News. *Chore of packing just got faster and easier*. 2023. https://news.mit.edu/2023/chore-packing-just-got-faster-and-easier-0706
+6. Joung, Y.-K., & Noh, S. D. (2014). Intelligent 3D packing using a grouping algorithm for automotive container engineering. *Journal of Computational Design and Engineering, 1*(2), 140 to 151. https://doi.org/10.7315/JCDE.2014.014

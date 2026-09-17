@@ -1,12 +1,14 @@
-# Solver Product Specification
+# 3D Bin Packing Product Specification
 
 ## 1. Purpose
 
-This document is the functional source of truth for the iHub cartonization solver before implementation begins.
+This document is the functional source of truth for the reusable 3D bin-packing solver used in the iHub capstone before implementation begins.
 
 The objective is to agree exactly how each component behaves, what it receives, what it returns, what it must reject, and how it will be tested. Technical implementation must follow these contracts rather than allowing code choices to define product behavior after the fact.
 
 The product is a reusable Python packing engine. Users interact with one public function only. Internal modules remain independently testable so the solver can be developed component by component and later exposed through an API without rewriting the packing logic.
+
+The reusable Python package is named **`bin_packing_3d`**. iHub is the benchmark dataset and business use case, not the package identity.
 
 ## 2. Product Goal
 
@@ -142,7 +144,7 @@ First Fit and Best Fit runtime must be reported independently.
 ## 6. Public Interface
 
 ```python
-from ihub_packing import solve_order
+from bin_packing_3d import solve_order
 
 result = solve_order(
     order=order,
@@ -221,7 +223,7 @@ The safety caps are tunable and must be benchmarked before being treated as stab
 ```text
 src/
   PRODUCT_SPEC.md
-  ihub_packing/
+  bin_packing_3d/
     __init__.py
     models.py
     normalize.py

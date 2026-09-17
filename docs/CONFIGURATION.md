@@ -4,16 +4,16 @@ Packing rules are runtime inputs. They must not be hard coded into `bin_packing_
 
 ## Current configuration shape
 
-```json
+```python
 {
-  "optimization_mode": "bins_number",
-  "bin_max_fill_check_min_item_qty": 6,
-  "bin_max_fill_pct": 70,
-  "bin_buffer": {
-    "length": 0,
-    "width": 0,
-    "height": 6
-  }
+    "optimization_mode": "bins_number",
+    "bin_max_fill_check_min_item_qty": 6,
+    "bin_max_fill_pct": 70,
+    "bin_buffer": {
+        "length": 0,
+        "width": 0,
+        "height": 6,
+    },
 }
 ```
 
@@ -32,15 +32,15 @@ Later milestones add search settings such as `placement_strategy`, `max_runtime_
 
 ## Carton catalogue
 
-The carton catalogue is part of each request rather than configuration stored in code.
+The carton catalogue is supplied when calling the package rather than stored in solver code.
 
-```json
+```python
 {
-  "code": "Box2",
-  "length": 270,
-  "width": 170,
-  "height": 115,
-  "max_weight": 20
+    "code": "Box2",
+    "length": 270,
+    "width": 170,
+    "height": 115,
+    "max_weight": 20,
 }
 ```
 
@@ -67,6 +67,6 @@ The threshold and percentage remain configurable. The rule becomes materially re
 
 ## Buffer rule
 
-Configured buffer reduces the usable internal carton dimensions before fit checks are performed. The exact interpretation of the supplied 6 mm height buffer must remain consistent across the API contract, implementation and benchmark tests.
+Configured buffer reduces the usable internal carton dimensions before fit checks are performed. The exact interpretation of the supplied 6 mm height buffer must remain consistent across the package interface, implementation and benchmark tests.
 
-See [`API.md`](API.md) for the request schema and [`../src/PRODUCT_SPEC.md`](../src/PRODUCT_SPEC.md) for detailed behavior.
+See [`INTERFACE.md`](INTERFACE.md) for the input contract and [`../src/PRODUCT_SPEC.md`](../src/PRODUCT_SPEC.md) for detailed behavior.

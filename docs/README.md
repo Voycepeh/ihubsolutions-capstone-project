@@ -1,20 +1,29 @@
 # Documentation
 
-This folder contains the project specifications, design notes, evaluation material, reports and presentation assets for the iHub 3D bin packing capstone.
+The root README stays intentionally short. Detailed behavior is split into focused documents here.
 
-## Documentation style
+## Core product docs
 
-Use [`TERMINOLOGY.md`](TERMINOLOGY.md) as the shared language guide.
+| Document | Purpose |
+| --- | --- |
+| [`INTERFACE.md`](INTERFACE.md) | Python package inputs, outputs and public function contract |
+| [`ARCHITECTURE.md`](ARCHITECTURE.md) | Package structure, module boundaries and end-to-end flow |
+| [`CONFIGURATION.md`](CONFIGURATION.md) | Runtime packing rules and defaults |
+| [`TESTING.md`](TESTING.md) | Unit-test strategy and milestone test cases |
+| [`ROADMAP.md`](ROADMAP.md) | Staged delivery from MVP 0 through later optimization |
+| [`../src/PRODUCT_SPEC.md`](../src/PRODUCT_SPEC.md) | Detailed engineering source of truth |
 
-Technical packing terms should be defined once when they first matter, then the rest of the documentation should use the simpler explanation. For example, define **Empty Maximal Space** once, then say **remaining empty space**. Define **Extreme Point** once, then say **candidate position**.
+## Supporting references
 
-Keep exact technical wording where it is genuinely needed, such as research-paper titles, citations, algorithm references or code identifiers.
+| Document | Purpose |
+| --- | --- |
+| [`TERMINOLOGY.md`](TERMINOLOGY.md) | Define technical packing terms once, then use plain language |
+| [`solver-approach-and-literature.md`](solver-approach-and-literature.md) | Algorithm rationale and research references |
+| [`dataset-specification.md`](dataset-specification.md) | Supplied benchmark dataset, fields and constraints |
+| [`../data/raw/CHANGELOG.md`](../data/raw/CHANGELOG.md) | Benchmark dataset version history |
 
-## Current references
+## Documentation rule
 
-- [`../src/PRODUCT_SPEC.md`](../src/PRODUCT_SPEC.md) is the functional source of truth for solver behavior, module responsibilities, tests and acceptance gates.
-- [`TERMINOLOGY.md`](TERMINOLOGY.md) defines technical terms and their preferred plain-language wording.
-- [`dataset-specification.md`](dataset-specification.md) documents the supplied benchmark dataset, including the request and response schema, candidate cartons, packing constraints, privacy notes and dataset limitations.
-- [`solver-approach-and-literature.md`](solver-approach-and-literature.md) records the literature rationale and how those ideas map to the selected solver design.
+Keep each file focused on one concern. Do not grow the root README into the product specification.
 
-As the project develops, keep major design decisions and evaluation methodology documented here so the implementation and final report remain traceable to the agreed project rules.
+Technical terms should be introduced accurately once and then replaced with simpler wording in normal explanation. Keep exact terminology only where it is required for research references, package field names or code identifiers.

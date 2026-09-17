@@ -8,9 +8,9 @@ The package is **`bin_packing_3d`**. iHub is the business use case and benchmark
 
 The solver accepts three things:
 
-1. **Order data** — item dimensions, weight, quantity and rotation rule.
-2. **Carton catalogue** — available carton dimensions and maximum weight.
-3. **Configuration** — operational packing rules such as buffer and fill limits.
+1. **Order data**: item dimensions, weight, quantity and rotation rule.
+2. **Carton catalogue**: available carton dimensions and maximum weight.
+3. **Configuration**: operational packing rules such as buffer and fill limits.
 
 It returns the selected cartons, item placements, unpacked items and runtime.
 
@@ -29,6 +29,14 @@ result = solve_order(
 ```
 
 `solve_order()` is the main public entry point. The current product is the Python package itself; no service or web API is required for the MVP.
+
+## Design direction
+
+The solver is intentionally designed as a lightweight real-time heuristic rather than an exact optimizer. The supplied iHub benchmark operates at sub-second latency, so packing quality must be improved without turning the solver into a long-running search.
+
+The implementation is inspired by established 3D packing research, including Joung and Noh's constructive sequence of ordering, orientation and bottom-corner placement. Their work is used for algorithmic inspiration, not as a latency target, because their CAD-based free-form packing benchmark runs in minutes while this project targets representative orders in under one second.
+
+See [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) for the full rationale and citations.
 
 ## Current milestone: MVP 0
 

@@ -1,6 +1,6 @@
 # Architecture
 
-The product is a reusable Python 3D bin-packing library with a thin API layer added later. FastAPI must call the same solver functions rather than duplicate packing logic.
+The product is a reusable Python 3D bin-packing library. Users clone or install the package, import `bin_packing_3d`, and call the public solver function directly.
 
 ## Package boundary
 
@@ -55,7 +55,7 @@ The current implementation milestone is intentionally simpler than the full arch
 | Module | Responsibility |
 | --- | --- |
 | `__init__.py` | Public `solve_order()` entry point |
-| `models.py` | Shared request, internal and result models |
+| `models.py` | Shared input, internal and result models |
 | `normalize.py` | Validation, defaults and quantity expansion |
 | `orientation.py` | Allowed 90-degree item orientations |
 | `feasibility.py` | Weight and dimension checks; carton ordering |
@@ -67,14 +67,16 @@ The current implementation milestone is intentionally simpler than the full arch
 | `multi_box.py` | Multiple-carton construction |
 | `improve.py` | Optional bounded improvement after baseline benchmarking |
 | `validate.py` | Independent final validation |
-| `result.py` | Stable JSON-serializable output |
+| `result.py` | Stable serializable output |
 
 ## Design rules
 
-The package is client-neutral. iHub-specific request data is normalized at the boundary; core packing logic stays reusable.
+The package is client-neutral. iHub-shaped benchmark data is normalized at the boundary; core packing logic stays reusable.
 
-The API layer stays thin. Pydantic/FastAPI own transport validation and documentation while `bin_packing_3d` owns packing behavior.
+The public Python interface should remain small and stable while the internal packing algorithm becomes more capable.
 
-Each later algorithm stage must reuse the same request and response contract so packing quality can improve without breaking API consumers.
+Each later algorithm stage should reuse the same input and output contract so packing quality can improve without breaking package users.
+
+A web or service wrapper may be added later if there is a real deployment need, but it is not part of the current MVP.
 
 For the detailed component contracts, see [`../src/PRODUCT_SPEC.md`](../src/PRODUCT_SPEC.md).

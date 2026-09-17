@@ -10,6 +10,8 @@ The supplied iHub request and response records are used as a benchmark. The goal
 
 The Python library is the MVP. FastAPI can later be added as a thin service layer over the same packing engine.
 
+The reusable Python package is named **`bin_packing_3d`**. iHub remains the benchmark dataset and business use case rather than the package identity.
+
 The detailed functional source of truth is [`src/PRODUCT_SPEC.md`](src/PRODUCT_SPEC.md). Functional behavior should be agreed there before technical implementation changes it.
 
 ## Public Solver Interface
@@ -17,7 +19,7 @@ The detailed functional source of truth is [`src/PRODUCT_SPEC.md`](src/PRODUCT_S
 Users should interact with one public entry point only:
 
 ```python
-from ihub_packing import solve_order
+from bin_packing_3d import solve_order
 
 result = solve_order(
     order=order,

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-MVP 0 is the smallest working version of the iHub cartonization product.
+MVP 0 is the smallest working version of the 3D bin packing product.
 
 It does **not** try to pack multiple items into the same carton yet. Its purpose is to prove the public data contract, input validation, item orientation rules, smallest-fitting-carton selection, XYZ output, and response contract before introducing multi-item 3D packing.
 
@@ -29,12 +29,24 @@ This milestone proves the parts of the product that later solver versions should
 
 Later milestones can improve how many items share a carton while keeping the same public contract.
 
+## Package name
+
+The reusable library should use a neutral product name rather than an iHub-specific package name.
+
+The planned Python import package for this project is:
+
+```text
+bin_packing_3d
+```
+
+iHub remains the benchmark dataset and business use case, not the package identity.
+
 ## Public interface
 
-The Python entry point remains:
+The Python entry point is:
 
 ```python
-from ihub_packing import solve_order
+from bin_packing_3d import solve_order
 
 result = solve_order(
     order=order,
@@ -413,7 +425,7 @@ The key geometry assertion for MVP 0 is simple:
 Only a small subset of the final architecture is needed:
 
 ```text
-src/ihub_packing/
+src/bin_packing_3d/
   __init__.py      public solve_order()
   models.py        request/internal/result models
   normalize.py     input validation and quantity expansion

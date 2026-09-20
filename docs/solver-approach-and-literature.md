@@ -23,51 +23,41 @@ Two packing terms are useful to name once because they appear in the literature.
 
 A **heuristic** is a practical rule-based method that tries to find a good solution quickly without proving the mathematically best possible answer. From this point onward, this page generally uses **packing strategy** or **approach**.
 
-See [`TERMINOLOGY.md`](TERMINOLOGY.md) for the shared repository terminology guide.
-
 ## 1. Shared 3D Placement Approach
 
-The current product design uses one shared 3D placement engine for both First Fit and Best Fit.
+The solver first builds a fast valid plan with deterministic First Fit. Only after that complete baseline exists does it spend remaining runtime trying to improve the plan.
 
-The engine works with rectangular items placed only in allowed 90-degree orientations. It does not scan every possible XYZ coordinate. Instead, it keeps track of the remaining empty rectangular spaces in the carton and tests a bounded set of candidate positions around carton and packed-item boundaries.
+The shared one-carton engine works with rectangular items placed only in allowed 90-degree orientations. It tracks remaining empty rectangular spaces and tests useful candidate positions rather than scanning every XYZ coordinate.
 
-For each item, the shared placement logic is:
+The core placement loop is:
 
-1. Order harder items first.
-2. List the item orientations that are allowed.
-3. Look through the current remaining empty spaces.
-4. Generate useful candidate positions.
-5. Reject positions outside the carton.
-6. Reject positions that overlap an item already packed.
-7. Pass valid positions to the selected placement strategy.
-8. Place the item.
-9. Update the remaining empty spaces.
-10. Remove duplicate, contained or unusable spaces.
-11. Repeat for the next item.
+1. sequence physical items,
+2. list allowed orientations,
+3. try useful candidate XYZ positions,
+4. reject boundary or overlap violations,
+5. place the item,
+6. update remaining empty spaces,
+7. continue until the carton cannot accept more items.
 
-This gives both strategies the same geometry and business rules so the comparison is fair.
+The one-carton engine returns both the packed items and the remaining physical items. The full-order solver repeats this engine across cartons until nothing remains or an item is unpackable.
 
-## 2. First Fit and Best Fit
+## 2. First Fit Baseline and Best Fit Improvement
 
-The initial experiment compares **First Fit** and **Best Fit** as placement-selection strategies, not as two different geometry engines.
+### First Fit baseline
 
-### First Fit
+MVPs 1 to 3 use First Fit. It accepts the first valid candidate placement in deterministic order.
 
-First Fit accepts the first valid candidate position it encounters in the shared deterministic order.
+This gives the solver a fast, complete and validated fallback plan before any more expensive search begins.
 
-Its purpose is to provide a simple low-search baseline. Because it stops once it finds a valid position, it should usually perform less work.
+### Best Fit improvement
 
-### Best Fit
+MVP 4 uses Best Fit as an improvement search. It evaluates more valid placement choices using the same geometry and business rules.
 
-Best Fit looks at the same valid candidate positions but continues evaluating them and chooses the preferred position using a fixed priority order.
+An improved plan is kept only when it uses fewer cartons, or the same number of cartons with lower total external carton volume.
 
-The comparison should answer whether the additional search produces enough packing improvement to justify the added runtime.
+If the improvement search reaches the runtime limit, the solver returns the best validated plan already found. The First Fit baseline is therefore always available as a fallback.
 
-### What is not part of the initial comparison
-
-Worst Fit is not part of the current V1 experiment. Earlier planning considered it, but the selected product specification now focuses on First Fit versus Best Fit because that directly tests the expected speed-versus-packing-quality tradeoff.
-
-Random search, simulated annealing, genetic algorithms, deep backtracking, parallel workers and voxel-based packing are also deferred until benchmark evidence shows that the simpler strategies are insufficient.
+The experiment is whether the extra runtime produces a material business improvement in carton count or carton volume.
 
 ## 3. Why Volume Alone Is Not Enough
 
@@ -111,59 +101,37 @@ A carton should never be treated as valid merely because enough total volume rem
 
 ## 6. Current Solver Flow
 
-```text
-Order + carton catalogue + configuration
-  ↓
-Validate and expand quantities
-  ↓
-List allowed item orientations
-  ↓
-Reject cartons that are definitely impossible
-  ↓
-Try one carton first, smallest suitable carton first
-  ↓
-Track remaining empty rectangular spaces
-  ↓
-Generate useful candidate positions
-  ↓
-Check boundaries and overlap
-  ↓
-First Fit: take first valid position
-or
-Best Fit: compare valid positions and choose preferred one
-  ↓
-Update remaining empty spaces
-  ↓
-Repeat until all items are packed
-  ↓
-If one carton fails, construct a multiple-carton plan
-  ↓
-Independently validate the result
-```
+The implementation roadmap is:
+
+1. **MVP 1 — Fit one item:** prove orientation rules and smallest valid carton selection.
+2. **MVP 2 — Pack one carton:** expand quantity into physical item instances and use First Fit to pack one carton, returning packed plus remaining items.
+3. **MVP 3 — Pack the whole order:** repeatedly reuse the one-carton engine to create a complete validated First Fit baseline.
+4. **MVP 4 — Improve the plan:** use remaining runtime for Best Fit and selected alternative sequences; keep only a complete plan with fewer cartons or lower total carton volume at equal carton count.
+
+This gives the solver an anytime structure: a valid baseline is available first, then extra computation is spent only on potential improvement.
 
 ## 7. Evaluation
 
-The supplied solved iHub orders provide a common benchmark for the two strategies.
-
-The initial experiment should run First Fit and Best Fit independently with later improvement logic disabled so the strategy difference is measured cleanly.
+The benchmark should compare the MVP 3 First Fit baseline with the final result after MVP 4 improvement.
 
 | Measure | Purpose |
 | --- | --- |
-| Valid solution rate | Whether all required items are packed correctly |
+| Valid solution rate | Correctness baseline |
 | Cartons used | Primary optimization outcome |
-| Orders where one strategy uses fewer cartons | Direct strategy comparison |
-| Total carton volume | Compare carton size when carton count is equal |
-| Space utilization | Percentage of carton volume occupied by packed items |
-| Median runtime | Typical speed |
-| P95 runtime | Time within which 95% of orders finish |
-| Maximum runtime | Difficult-case behavior |
-| Runtime difference | Additional time paid for Best Fit |
+| Total carton volume | Secondary objective when carton count is equal |
+| Space utilization | Later tie break and diagnostic |
+| First Fit baseline runtime | Time to guaranteed valid fallback |
+| Total runtime | Cost after improvement search |
+| Orders with fewer cartons after improvement | Direct business benefit |
+| Orders with smaller carton volume at equal carton count | Secondary business benefit |
+| Orders with no material improvement | Extra search that did not change the business outcome |
+| Timeout fallback count | How often the solver returned the existing best plan |
 
 The main experimental question is:
 
-> How much additional runtime does Best Fit require, and how often does that additional search reduce carton count or carton volume compared with First Fit?
+> Does the additional Best Fit search time actually reduce carton count or total carton volume often enough to justify the latency?
 
-The supplied iHub service already operates at sub-second latency on the development sample, so this project treats sub-second response time as an engineering requirement rather than using minute-scale academic runtimes as a target. Packing quality must therefore be evaluated together with latency.
+The improvement stage should never make the system less reliable because the validated First Fit baseline is retained throughout.
 
 ## 8. Literature Rationale
 
@@ -189,7 +157,7 @@ The project also reviewed `Xebet/3d-packing-simulator`, which demonstrates a pra
 
 The MIT Scalable Spectral Packing work provides another useful conceptual comparison: order the objects, search for collision-free placements, score placement quality and repeat. Its voxel-grid and Fast Fourier Transform approach is aimed at more general 3D shapes and is therefore not selected for this rectangular-item MVP.
 
-Together, these sources support the current design choice: use a simple, explainable shared geometry engine first, compare First Fit and Best Fit experimentally, preserve a strict sub-second runtime target, and add more complex search only when measured results justify it.
+Together, these sources support the current design choice: build a simple First Fit solution first, retain it as a validated fallback, then spend only the remaining runtime on Best Fit or selected retries and keep them only when they materially improve carton count or total carton volume.
 
 ## References
 

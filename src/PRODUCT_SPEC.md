@@ -212,6 +212,8 @@ The solver tracks useful remaining empty rectangular spaces after each placement
 
 ## 8. Logical MVP Sequence
 
+![3D Packing Solver MVP Roadmap](../docs/images/MVP.png)
+
 The MVP sequence follows the business problem. MVPs 1 to 3 build the fast First Fit baseline. MVP 4 spends only the remaining runtime trying to improve that already-valid plan.
 
 ### MVP 1: Fit one item

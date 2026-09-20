@@ -32,6 +32,8 @@ result = solve_order(
 
 ## MVP roadmap
 
+![3D Packing Solver MVP Roadmap](docs/images/MVP.png)
+
 The solver is built in four MVPs that follow the actual packing problem.
 
 1. **MVP 1: Fit one item** — test allowed orientations and identify the smallest valid carton for one physical item.

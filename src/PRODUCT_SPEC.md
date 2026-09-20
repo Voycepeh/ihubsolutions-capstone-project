@@ -84,7 +84,7 @@ Initial defaults:
 ```python
 {
     "optimization_mode": "bins_number",
-    "placement_strategy": "first_fit",
+    "improvement_strategy": "best_fit",
     "bin_max_fill_check_min_item_qty": 6,
     "bin_max_fill_pct": 70,
     "bin_buffer": {
@@ -102,7 +102,9 @@ Required behavior:
 1. If physical item count is at or below `bin_max_fill_check_min_item_qty`, the fill cap does not restrict the carton.
 2. If physical item count is above the threshold, packed item volume must not exceed `bin_max_fill_pct` of usable carton volume.
 3. Buffer reduces usable carton dimensions before placement checks.
-4. Invalid configuration values must be rejected clearly.
+4. MVPs 1 to 3 always build the initial plan with deterministic First Fit.
+5. MVP 4 may use `improvement_strategy = "best_fit"` while runtime remains.
+6. Invalid configuration values must be rejected clearly.
 
 ## 5. Allowed Item Orientations
 
@@ -181,8 +183,9 @@ Owns the complete packing engine:
 6. item orientation and placement,
 7. one-carton packing attempts,
 8. multiple-carton construction,
-9. First Fit and Best Fit selection,
-10. optional retry and improvement logic.
+9. deterministic First Fit baseline packing,
+10. Best Fit improvement search,
+11. timeout-safe retention of the best validated plan.
 
 Keep these related operations together until the module becomes genuinely difficult to understand.
 
@@ -209,135 +212,144 @@ The solver tracks useful remaining empty rectangular spaces after each placement
 
 ## 8. Logical MVP Sequence
 
-The MVP sequence follows the actual business problem rather than individual algorithm names.
+The MVP sequence follows the business problem. MVPs 1 to 3 build the fast First Fit baseline. MVP 4 spends only the remaining runtime trying to improve that already-valid plan.
 
-### MVP 0: Fit one item into the correct carton
+### MVP 1: Fit one item
 
-**Question:** Can one physical item be fitted correctly into the smallest valid carton?
+**Question:** Can one physical item fit correctly, and what is the smallest valid carton?
 
 Scope:
 
-1. validate one item and the carton catalogue,
+1. validate one physical item and the carton catalogue,
 2. generate allowed orientations,
-3. enforce `VerticalRotation`, buffer, dimensions, and weight,
+3. enforce `VerticalRotation`, buffer, dimensions and weight,
 4. reject cartons that cannot fit the item,
 5. choose the smallest valid carton,
 6. place the item at a valid origin position,
-7. return and validate the result.
+7. validate the result.
 
 Acceptance gate: orientation and carton selection are correct for representative edge cases.
 
-### MVP 1: Pack multiple items into one carton
+### MVP 2: Pack one carton
 
-**Question:** Can multiple physical items be placed together inside one carton without overlap or boundary violations?
+**Question:** Given an order and one carton, how many physical items can First Fit pack validly into it?
 
-Add:
+Before packing, expand `Quantity` into separate physical item instances so every unit receives its own orientation and XYZ placement.
 
-1. deterministic item sequencing,
-2. sequence → orient → place loop,
-3. allowed orientation checks for every item,
-4. candidate XYZ positions,
-5. item-to-item overlap checks,
-6. carton boundary checks,
-7. remaining empty-space tracking,
-8. retry within the current carton when one orientation or position fails,
-9. clear success or failure for the one-carton attempt.
+Then:
 
-Acceptance gate: the solver can return a valid multi-item layout for one carton and correctly reject impossible layouts.
+1. sequence physical items deterministically,
+2. choose an allowed orientation,
+3. try candidate XYZ positions,
+4. reject overlap and boundary violations,
+5. update remaining empty space after each placement,
+6. retry another orientation or position when needed,
+7. continue until every item is packed or no more items can be placed.
 
-### MVP 2: Solve the full order across the carton catalogue
+Output:
 
-**Question:** Can the whole order be packed using the fewest cartons, while preferring smaller cartons when carton count is equal?
+1. the packed carton and its item placements,
+2. the physical items still remaining.
 
-Add:
+Acceptance gate: the one-carton engine returns a valid layout plus an explicit remaining-item set.
 
-1. try viable cartons from smaller to larger,
-2. attempt a one-carton solution first,
-3. if one carton cannot hold the full order, build a multiple-carton plan,
-4. reuse already-open cartons before opening another when valid,
-5. open the smallest viable new carton when another carton is required,
-6. enforce all weight, fill, buffer, rotation, and geometry rules per carton,
-7. return unpackable items explicitly,
-8. independently validate the complete plan.
+### MVP 3: Pack the whole order
 
-Acceptance gate: the solver can process a representative full order from input to validated single-carton or multi-carton output.
+**Question:** Can the full order be packed into the fewest cartons using the First Fit engine?
 
-At this point the core business problem is solved.
+MVP 3 repeatedly reuses MVP 2:
 
-### MVP 3: Improve the valid plan
+1. start with all physical items,
+2. choose the smallest viable carton,
+3. run the one-carton First Fit engine,
+4. remove packed items from the remaining set,
+5. open another carton only when items remain,
+6. repeat until all items are packed or an item is unpackable,
+7. independently validate the complete plan.
 
-**Question:** Can we reduce cartons or carton volume further without losing control of runtime?
+The result of MVP 3 is the **First Fit baseline plan**.
 
-Improvement methods may include:
+Complete-plan objective order:
 
-1. compare First Fit against Best Fit using the same geometry engine,
-2. try a small fixed set of alternative item sequences,
-3. retry difficult carton layouts with a different sequence,
-4. attempt to remove a weakly used carton by repacking its items into the others,
-5. stop when `max_runtime_ms` is reached,
-6. always keep the best already validated plan.
+1. valid plan,
+2. fewer cartons,
+3. lower total external carton volume when carton count is equal,
+4. higher utilization,
+5. stable deterministic tie break.
 
-MVP 3 does not mean unlimited optimization. It means controlled retries of an already-working solver.
+Acceptance gate: a representative order produces a complete validated single-carton or multi-carton First Fit plan.
 
-Do not add simulated annealing, genetic algorithms, deep backtracking, or exhaustive search unless benchmark evidence creates a clear need.
+### MVP 4: Improve the baseline plan
+
+**Question:** Is extra search time worth it because it produces a materially better packing plan?
+
+Start with the validated First Fit baseline already produced by MVP 3. Never discard it while improvement is running.
+
+Within the remaining `max_runtime_ms` budget:
+
+1. run Best Fit using the same geometry and packing rules,
+2. optionally try a small fixed set of alternative item sequences,
+3. compare each complete valid alternative against the best plan already found,
+4. keep an alternative only when it uses fewer cartons, or when carton count is equal and total external carton volume is smaller,
+5. use higher utilization only as a later tie break,
+6. stop immediately when the runtime limit is reached,
+7. return the best validated plan found so far.
+
+If Best Fit or another retry does not improve carton count or carton volume, the First Fit baseline remains the result.
+
+If the improvement search times out before completing, the solver returns the best already-validated plan. The First Fit baseline is therefore the guaranteed fallback.
+
+Do not add simulated annealing, genetic algorithms, deep backtracking or exhaustive search unless benchmark evidence creates a clear need.
 
 ## 9. End-to-End Solver Flow
 
 ```mermaid
-flowchart TD
-    A[Order + carton catalogue + configuration]
-    B[Normalize items and expand quantity]
-    C[Generate allowed orientations]
-    D[Filter impossible cartons]
-    E[Sequence items]
-    F[Orient current item]
-    G[Try valid XYZ position]
-    H{Placement valid?}
-    I[Place item and update empty space]
-    J{All items packed?}
-    K[Try another orientation or position]
-    L{Current carton plan failed?}
-    M[Try another carton or open another carton]
-    N[Independently validate complete plan]
-    O[Optional improvement within runtime limit]
-    P[Return best valid result]
+flowchart LR
+    A[Order + carton catalogue]
+    B[Expand quantity into physical items]
+    C[First Fit: pack one carton]
+    D{Items remaining?}
+    E[Open next smallest viable carton]
+    F[Validated First Fit baseline]
+    G[Best Fit improvement while time remains]
+    H{Better complete plan?}
+    I[Keep better plan]
+    J[Return best validated plan]
 
-    A --> B --> C --> D --> E --> F --> G --> H
-    H -->|Yes| I --> J
-    H -->|No| K --> L
-    L -->|No| F
-    L -->|Yes| M --> E
-    J -->|No| F
-    J -->|Yes| N --> O --> P
+    A --> B --> C --> D
+    D -->|Yes| E --> C
+    D -->|No| F --> G --> H
+    H -->|Yes| I --> G
+    H -->|No or timeout| J
+    F -. guaranteed fallback .-> J
 ```
 
-The important internal loop is:
-
-**sequence → orient → place → validate → retry if needed**
+The critical runtime guarantee is simple: **MVP 3 produces a valid First Fit baseline before MVP 4 begins. Improvement may replace that baseline only with a better validated complete plan.**
 
 ## 10. First Fit and Best Fit
 
-First Fit and Best Fit are improvement strategies, not separate product goals.
+### First Fit baseline
 
-Both must use the same:
+First Fit is the packing strategy used through MVPs 1 to 3.
 
-1. item order for a given trial,
-2. allowed orientations,
-3. candidate positions,
-4. remaining empty spaces,
-5. boundary and overlap checks,
-6. business rules,
-7. final validator.
+For each physical item, it accepts the first valid candidate placement in deterministic order. This keeps the baseline fast and gives the solver a complete valid plan before additional search begins.
 
-### First Fit
+### Best Fit improvement
 
-Accept the first valid candidate in deterministic order.
+Best Fit is introduced in MVP 4.
 
-### Best Fit
+It uses the same item set, allowed orientations, candidate positions, remaining empty spaces, boundary and overlap checks, weight/fill/buffer rules, and final validator.
 
-Evaluate the available valid candidates and choose the preferred candidate using a deterministic score.
+The difference is that Best Fit evaluates more valid placement choices instead of stopping at the first one.
 
-The benchmark should determine whether the extra search improves carton count or carton volume enough to justify the added runtime.
+Best Fit is worth keeping only when the resulting complete plan improves the business objective:
+
+1. fewer cartons, or
+2. the same carton count with lower total external carton volume.
+
+Runtime alone never makes a plan better. If extra search produces no packing improvement, return the First Fit baseline.
+
+If the runtime limit is reached during Best Fit, return the best validated plan already found.
 
 ## 11. Output Contract
 
@@ -356,7 +368,7 @@ The output must contain enough information to independently reconstruct and vali
 
 Tests should follow the MVP boundaries.
 
-### MVP 0 tests
+### MVP 1 tests
 
 1. one item fits the smallest valid carton,
 2. item too large for a carton is rejected even when volume is smaller,
@@ -364,15 +376,17 @@ Tests should follow the MVP boundaries.
 4. the same fit fails when `VerticalRotation = false`,
 5. weight and buffer rules are enforced.
 
-### MVP 1 tests
-
-1. two `15 × 10 × 10` items can share a suitable carton without overlap,
-2. true overlap is rejected,
-3. touching faces are allowed,
-4. multiple orientations and positions are tried deterministically,
-5. impossible one-carton layouts fail cleanly.
-
 ### MVP 2 tests
+
+1. `Quantity` is expanded into physical item instances before packing,
+2. two `15 × 10 × 10` items can share a suitable carton without overlap,
+3. true overlap is rejected,
+4. touching faces are allowed,
+5. multiple orientations and positions are tried deterministically,
+6. the one-carton result returns both packed and remaining items,
+7. impossible one-carton layouts fail cleanly.
+
+### MVP 3 tests
 
 1. smallest valid one-carton solution is preferred,
 2. multi-carton fallback works when one carton is impossible,
@@ -380,15 +394,19 @@ Tests should follow the MVP boundaries.
 4. weight and fill rules can force a split,
 5. unpackable items are reported,
 6. fewer cartons always beat more cartons,
-7. equal carton count prefers lower total carton volume.
+7. equal carton count prefers lower total carton volume,
+8. the complete First Fit baseline passes independent validation.
 
-### MVP 3 tests
+### MVP 4 tests
 
-1. First Fit and Best Fit use the same geometry rules,
-2. improvement never worsens the objective,
-3. alternative sequences remain deterministic,
-4. invalid retry candidates are rejected,
-5. runtime limit stops further improvement while preserving the best valid plan.
+1. MVP 3 always produces a validated First Fit baseline before improvement,
+2. First Fit and Best Fit use the same geometry and business rules,
+3. improvement is accepted when it reduces carton count,
+4. equal carton count accepts lower total carton volume,
+5. no material packing improvement leaves the First Fit baseline unchanged,
+6. alternative sequences remain deterministic,
+7. invalid retry candidates are rejected,
+8. runtime limit stops further improvement and returns the best validated plan already found.
 
 ### Final validation tests
 
@@ -411,7 +429,7 @@ Initial targets:
 | P95 runtime | below 1,000 ms |
 | Repeatability | same logical result for the same input and strategy |
 
-For MVP 3, First Fit and Best Fit must be reported separately for runtime, carton count, total carton volume, and utilization.
+For MVP 4, report the First Fit baseline and the improved result separately. Record runtime overhead, whether carton count was reduced, whether total carton volume was reduced at equal carton count, and how often extra search produced no material packing improvement.
 
 ## 14. Development Rule for Codex
 
@@ -420,12 +438,13 @@ Codex should implement from this specification and should not invent new product
 Preferred implementation sequence:
 
 1. create the five-file package skeleton and tests,
-2. implement MVP 0,
-3. implement MVP 1 using the sequence → orient → place loop,
-4. implement MVP 2 to solve the full business problem,
-5. benchmark the working solver,
-6. implement MVP 3 improvement methods only after the full-order solver is valid.
+2. implement MVP 1 item fit and orientation rules,
+3. implement MVP 2 one-carton First Fit packing with quantity expansion and remaining-item output,
+4. implement MVP 3 full-order First Fit orchestration and independent validation,
+5. benchmark the First Fit baseline,
+6. implement MVP 4 Best Fit improvement with strict timeout fallback to the best validated plan.
 
 Review and commits should remain separated by MVP so regressions are easy to identify.
 
 Simplicity is a product requirement for this project.
+

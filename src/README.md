@@ -33,16 +33,18 @@ The internal package stays deliberately small:
 
 ## Development order
 
-Implementation should follow the business capability rather than individual algorithm names:
+Implementation follows four business capabilities:
 
-1. **MVP 0**: fit one item into the smallest valid carton.
-2. **MVP 1**: pack multiple items into one carton.
-3. **MVP 2**: solve the full order using the fewest cartons and then the smallest carton combination.
-4. **MVP 3**: improve the valid result with controlled retries such as First Fit vs Best Fit, alternative sequences and carton consolidation.
+1. **MVP 1 — Fit one item:** find the smallest valid carton for one physical item.
+2. **MVP 2 — Pack one carton:** expand quantity into physical item instances, then use First Fit to sequence, orient and place items in one carton. Return packed items plus the remaining items.
+3. **MVP 3 — Pack the whole order:** repeatedly reuse the one-carton engine until all items are packed. This is the fast validated First Fit baseline.
+4. **MVP 4 — Improve the plan:** within the remaining runtime, try Best Fit and selected alternative sequences. Keep only a valid plan that uses fewer cartons, or smaller total carton volume when carton count is equal. On timeout, return the best validated plan already found.
 
 The core packing loop is:
 
 **sequence → orient → place → validate → retry if needed**
+
+The First Fit baseline from MVP 3 is never discarded while improvement is running.
 
 Do not create a new Python module for every helper function or algorithm step. Keep related logic together until there is a clear reason to split it.
 

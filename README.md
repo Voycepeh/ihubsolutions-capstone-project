@@ -1,22 +1,22 @@
 # 3D Bin Packing Solver
 
-NUS Industry 4.0 Master's capstone project building a reusable Python 3D bin-packing and cartonization library, benchmarked against masked iHub order data.
+NUS Industry 4.0 Master's capstone project building a reusable Python 3D bin packing and cartonization library, benchmarked against masked iHub order data.
 
-The package is **`bin_packing_3d`**. iHub is the business use case and benchmark dataset, not the package identity.
+The package is `bin_packing_3d`. iHub is the business use case and benchmark dataset, not the package identity.
 
 ## What it does
 
-The solver accepts three things:
+The solver accepts:
 
 1. **Order data**: item dimensions, weight, quantity and rotation rule.
 2. **Carton catalogue**: available carton dimensions and maximum weight.
-3. **Configuration**: operational packing rules such as buffer and fill limits.
+3. **Configuration**: operational packing rules such as buffer, fill limit and placement strategy.
 
-It returns the selected cartons, item placements, unpacked items and runtime.
+It returns selected cartons, item placements, unpacked items and runtime.
 
-## Use the package
+The objective is simple: return a valid packing plan using the **fewest cartons**, then prefer the **smallest total carton volume** when carton count is equal.
 
-Clone or install the repository, then import the package and call the main solver function:
+## Public interface
 
 ```python
 from bin_packing_3d import solve_order
@@ -28,70 +28,80 @@ result = solve_order(
 )
 ```
 
-`solve_order()` is the main public entry point. The current product is the Python package itself; no service or web API is required for the MVP.
+`solve_order()` is the only public solver function normal users need.
 
-## Design direction
+## MVP roadmap
 
-The solver is intentionally designed as a lightweight real-time heuristic rather than an exact optimizer. The supplied iHub benchmark operates at sub-second latency, so packing quality must be improved without turning the solver into a long-running search.
+The MVP sequence follows the actual business problem:
 
-The implementation is inspired by established 3D packing research, including Joung and Noh's constructive sequence of ordering, orientation and bottom-corner placement. Their work is used for algorithmic inspiration, not as a latency target, because their CAD-based free-form packing benchmark runs in minutes while this project targets representative orders in under one second.
+1. **MVP 0: Fit one item** — generate allowed orientations and choose the smallest valid carton.
+2. **MVP 1: Pack many items into one carton** — add sequencing, orientation, XYZ placement, overlap checks and remaining-space tracking.
+3. **MVP 2: Pack the full order** — use the whole carton catalogue and return the fewest valid cartons, preferring smaller cartons when carton count is equal.
+4. **MVP 3: Improve the result** — compare First Fit and Best Fit, retry selected item sequences, and attempt carton consolidation within a runtime limit.
 
-See [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) for the full rationale and citations.
+The core packing loop is:
 
-## Current milestone: MVP 0
+**sequence items → choose allowed orientation → choose XYZ position → validate placement → continue or retry**
 
-The first implementation is deliberately simple:
+This structure is adapted from the study's separation of sequencing, orientating and loading decisions, while our implementation remains focused on rectangular items rather than free-form CAD parts.
 
-```text
-Validate inputs
-    ↓
-Expand Quantity into physical items
-    ↓
-For each item, test allowed orientations
-    ↓
-Reject cartons that fail weight or dimensions
-    ↓
-Choose the smallest-volume carton that fits
-    ↓
-Place one item per carton at x=0, y=0, z=0
-    ↓
-Return the packing result
-```
+The complete functional contract is in [`src/PRODUCT_SPEC.md`](src/PRODUCT_SPEC.md).
 
-This proves the package interface, data validation, orientation rules, carton selection and output structure before introducing multi-item geometry.
-
-Multi-item packing, remaining empty spaces, First Fit and Best Fit come in later milestones.
-
-## Documentation
-
-| Document | Purpose |
-| --- | --- |
-| [`docs/INTERFACE.md`](docs/INTERFACE.md) | Python package inputs, outputs and public function contract |
-| [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | Package structure, module responsibilities and solver flow |
-| [`docs/CONFIGURATION.md`](docs/CONFIGURATION.md) | Runtime packing rules and defaults |
-| [`docs/TESTING.md`](docs/TESTING.md) | Unit-test strategy and MVP 0 cases |
-| [`docs/ROADMAP.md`](docs/ROADMAP.md) | MVP 0 → multi-item geometry → First Fit vs Best Fit → improvement |
-| [`src/PRODUCT_SPEC.md`](src/PRODUCT_SPEC.md) | Detailed engineering source of truth |
-| [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) | Algorithm rationale and literature |
-| [`docs/TERMINOLOGY.md`](docs/TERMINOLOGY.md) | Technical terms translated into plain language |
-| [`docs/dataset-specification.md`](docs/dataset-specification.md) | Supplied benchmark data and fields |
-
-## Repository structure
+## Simplified package structure
 
 ```text
 ihubsolutions-capstone-project/
 ├── src/
 │   ├── PRODUCT_SPEC.md
-│   └── bin_packing_3d/        # reusable Python package
-├── tests/                     # unit and component tests
-├── docs/                      # interface, architecture and project documentation
-├── notebooks/                 # exploratory analysis and benchmark EDA
-├── data/raw/                  # supplied development benchmark data
+│   └── bin_packing_3d/
+│       ├── __init__.py
+│       ├── models.py
+│       ├── rules.py
+│       ├── packing.py
+│       └── validate.py
+├── tests/
+│   ├── test_rules.py
+│   ├── test_packing.py
+│   ├── test_validate.py
+│   ├── test_solver.py
+│   └── fixtures/
+├── notebooks/
+├── data/raw/
+├── docs/
 └── README.md
 ```
 
+The package intentionally avoids one file per helper concept. Related geometry and search logic stay together until there is a clear reason to split them.
+
+## Key packing rules
+
+The solver must support:
+
+- configurable carton catalogue,
+- quantity expansion into physical items,
+- upright-only items through `VerticalRotation`,
+- maximum carton weight,
+- configurable carton buffer,
+- configurable fill threshold and fill percentage,
+- 3D boundary and overlap checks,
+- single and multiple carton packing,
+- unpackable item reporting,
+- independent final validation.
+
+The exact orientation rule is illustrated in [`docs/images/exact_vertical_rotation_orientations.png`](docs/images/exact_vertical_rotation_orientations.png).
+
+## Documentation
+
+| Document | Purpose |
+| --- | --- |
+| [`src/PRODUCT_SPEC.md`](src/PRODUCT_SPEC.md) | Functional source of truth and MVP logic |
+| [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) | Algorithm rationale and literature |
+| [`docs/dataset-specification.md`](docs/dataset-specification.md) | Supplied benchmark data and fields |
+
+Exploratory findings belong in `notebooks/`. Product behavior belongs in the product spec.
+
 ## Development principle
 
-Build the smallest valid layer first, test it, then add packing intelligence without changing the public package contract.
+Build capability in layers: prove one-item fit, then multi-item geometry, then solve the complete order, then improve the answer only after the core solver works.
 
-The historical iHub outputs are a benchmark rather than mathematical ground truth. A different carton arrangement is acceptable when it is valid, respects the agreed constraints and improves the stated objective.
+The historical iHub outputs are a benchmark rather than mathematical ground truth. A different arrangement is acceptable when it is valid, respects the agreed constraints and improves the stated objective.

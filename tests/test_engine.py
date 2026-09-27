@@ -48,6 +48,16 @@ def test_invalid_solver_plan_is_rejected():
         solve_order(ORDER,BOXES,{"strategy":"empty","bin_buffer":{"height":0}})
     assert {e.code for e in exc.value.validation.errors} == {"missing_item"}
 
+def test_all_items_unpacked_cannot_be_reported_as_success():
+    class AllUnpackedSolver:
+        name="all_unpacked"
+        def solve(self,items,boxes,config):
+            return PackingPlan(unpacked_item_ids=[item.instance_id for item in items])
+    register_solver("all_unpacked",AllUnpackedSolver())
+    with pytest.raises(InvalidPackingPlanError) as exc:
+        solve_order(ORDER,BOXES,{"strategy":"all_unpacked","bin_buffer":{"height":0}})
+    assert {e.code for e in exc.value.validation.errors} == {"unpacked_item"}
+
 def test_solver_must_return_standard_plan():
     class BadType:
         name="bad"

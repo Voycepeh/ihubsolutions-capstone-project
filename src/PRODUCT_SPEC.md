@@ -38,7 +38,9 @@ Defaults are:
 }
 ```
 
-`strategy` resolves exactly one registered solver. Invalid strategy names, percentages, thresholds, runtimes, and negative buffers are errors, not values to repair. Buffer is subtracted from each corresponding carton dimension; non-positive usable dimensions are invalid. External dimensions remain unchanged for external-volume metrics.
+`strategy` resolves exactly one registered solver. Invalid strategy names, percentages, thresholds, runtimes, negative buffers, and non-finite numeric values are errors, not values to repair. Buffer is subtracted from each corresponding carton dimension; non-positive usable dimensions are invalid. External dimensions remain unchanged for external-volume metrics.
+
+`max_runtime_ms` is the search budget communicated to the selected solver. Search termination belongs to the plugin: the engine measures elapsed solver runtime consistently but does not forcibly interrupt plugin code. Solver implementations must observe the budget if they promise time-bounded search.
 
 For an order with physical item count at or below the threshold, fill is unrestricted up to 100%. Above it, each carton's packed item volume must be no more than `bin_max_fill_pct` of its **usable** volume. This is a maximum, not a target.
 
@@ -46,7 +48,7 @@ For an order with physical item count at or below the threshold, fill is unrestr
 
 `Quantity` is expanded deterministically into traceable instances such as `SKU123#1`. Models cover source and physical items, cartons, orientations, XYZ positions, placements, individual packed carton instances, plans, configuration, structured validation errors, metrics, and results.
 
-A `PackingPlan` includes packed carton instances and their placements plus explicit unpacked physical-item identifiers. It contains sufficient information to validate a proposal without solver internals. `PackingResult.to_dict()` must be JSON serializable and includes order identifiers, status, strategy, cartons, placements, unpacked items, validation, runtime, and metrics.
+A `PackingPlan` includes packed carton instances and their placements plus explicit unpacked physical-item identifiers. It contains sufficient information to validate a proposal without solver internals. Accounting validation permits explicit unpacked identifiers so failures can be diagnosed, but the normal `solve_order()` path succeeds only when every individually feasible item is packed. Until a separate partial-result contract is introduced, any unpacked item causes `InvalidPackingPlanError` rather than a misleading `status="success"`. `PackingResult.to_dict()` must be JSON serializable and includes order identifiers, status, strategy, cartons, placements, unpacked items, validation, runtime, and metrics.
 
 ## 4. Orientations and feasibility
 
@@ -99,7 +101,7 @@ A manually understandable valid geometry is a `20 × 20 × 20` carton with two `
 
 ## 7. Metrics and runtime
 
-The engine uses a monotonic high-resolution timer around the plugin call. Metrics include carton count, packed and unpacked counts, total packed item volume, total **external** carton volume, overall packed-volume/external-volume utilization, runtime milliseconds, and per-carton packed weight, volume, and usable-volume utilization. Benchmark aggregation stays outside `solve_order()`.
+The engine uses a monotonic high-resolution timer around the plugin call. This measurement is consistent across plugins; `max_runtime_ms` remains a solver search budget rather than an engine-enforced interruption deadline. Metrics include carton count, packed and unpacked counts, total packed item volume, total **external** carton volume, overall packed-volume/external-volume utilization, runtime milliseconds, and per-carton packed weight, volume, and usable-volume utilization. Benchmark aggregation stays outside `solve_order()`.
 
 Later benchmarks may compare validity rate, carton count, volume, utilization, packed counts, median/P95 runtime, ties, improvement frequency, and overhead. Historical iHub layouts are reference results, not unique geometric truth. Do not claim First Fit versus Best Fit conclusions until both real plugins exist.
 

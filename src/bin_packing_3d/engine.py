@@ -6,7 +6,7 @@ from time import perf_counter
 from typing import Any
 
 from .metrics import calculate_metrics
-from .models import InvalidPackingPlanError, PackingPlan, PackingResult
+from .models import InvalidPackingPlanError, PackingPlan, PackingResult, ValidationError
 from .rules import ensure_individual_feasibility, expand_items, normalize_boxes, normalize_config, normalize_order, usable_dimensions
 from .solvers import get_solver
 from .validate import validate_plan
@@ -30,6 +30,16 @@ def solve_order(order: Mapping[str, Any], boxes: Any, config: Mapping[str, Any] 
     if not isinstance(plan, PackingPlan):
         raise TypeError(f"Solver '{normalized_config.strategy}' must return PackingPlan")
     validation = validate_plan(plan, physical_items, normalized_boxes, normalized_config)
+    # Accounting for an item as unpacked makes a plan structurally inspectable,
+    # but it is not a successful solution. Every item passed to the solver has
+    # already been proven to fit at least one available carton.
+    for item_id in plan.unpacked_item_ids:
+        validation.errors.append(ValidationError(
+            "unpacked_item",
+            f"Physical item '{item_id}' was not packed by strategy '{normalized_config.strategy}'",
+            item_instance_id=item_id,
+        ))
+    validation.valid = not validation.errors
     if not validation.valid:
         raise InvalidPackingPlanError(validation)
     metrics = calculate_metrics(plan, physical_items, normalized_boxes, runtime_ms)

@@ -19,7 +19,10 @@ def test_quantity_expands_to_stable_unique_ids():
     _, _, items = normalize_order({"Items": [item(Quantity=3)]})
     assert [i.instance_id for i in expand_items(items)] == ["A#1", "A#2", "A#3"]
 
-@pytest.mark.parametrize("change", [{"Length": 0}, {"Width": -1}, {"Weight": 0}, {"Quantity": 0}, {"Quantity": 1.5}])
+@pytest.mark.parametrize("change", [
+    {"Length": 0}, {"Width": -1}, {"Height": float("nan")},
+    {"Weight": 0}, {"Weight": float("inf")}, {"Quantity": 0}, {"Quantity": 1.5},
+])
 def test_invalid_items_are_rejected(change):
     with pytest.raises(InvalidInputError): normalize_order({"Items": [item(**change)]})
 
@@ -27,7 +30,11 @@ def test_missing_item_field_is_rejected():
     raw=item(); del raw["Height"]
     with pytest.raises(InvalidInputError, match="Height"): normalize_order({"Items": [raw]})
 
-@pytest.mark.parametrize("boxes", [[], [{"Code":"B"}], [{"Code":"B","Length":1,"Width":1,"Height":1,"MaxWeight":-1}]])
+@pytest.mark.parametrize("boxes", [
+    [], [{"Code":"B"}],
+    [{"Code":"B","Length":1,"Width":1,"Height":1,"MaxWeight":-1}],
+    [{"Code":"B","Length":float("inf"),"Width":1,"Height":1,"MaxWeight":1}],
+])
 def test_bad_carton_catalogues_are_rejected(boxes):
     with pytest.raises(InvalidInputError): normalize_boxes(boxes)
 
@@ -41,7 +48,9 @@ def test_orientation_rules_and_duplicate_removal():
 
 @pytest.mark.parametrize("config", [
     {"bin_buffer":{"length":-1}}, {"bin_max_fill_pct":0}, {"bin_max_fill_pct":101},
-    {"max_runtime_ms":0}, {"bin_max_fill_check_min_item_qty":-1}, {"strategy":""},
+    {"bin_max_fill_pct":float("nan")}, {"max_runtime_ms":0},
+    {"max_runtime_ms":float("inf")}, {"bin_buffer":{"width":float("nan")}},
+    {"bin_max_fill_check_min_item_qty":-1}, {"strategy":""},
 ])
 def test_invalid_config_is_rejected(config):
     with pytest.raises(InvalidConfigError): normalize_config(config)

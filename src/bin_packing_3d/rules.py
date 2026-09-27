@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from math import isfinite
 from numbers import Real
 from typing import Any
 
@@ -21,7 +22,8 @@ def _lookup(data: Mapping[str, Any], *names: str, required: bool = True, default
 
 
 def _positive_number(value: Any, field: str) -> float:
-    if isinstance(value, bool) or not isinstance(value, Real) or value <= 0:
+    if (isinstance(value, bool) or not isinstance(value, Real)
+            or not isfinite(value) or value <= 0):
         raise InvalidInputError(f"{field} must be a positive number")
     return float(value)
 
@@ -115,15 +117,16 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
     if isinstance(config.bin_max_fill_check_min_item_qty, bool) or not isinstance(config.bin_max_fill_check_min_item_qty, int) or config.bin_max_fill_check_min_item_qty < 0:
         raise InvalidConfigError("bin_max_fill_check_min_item_qty must be a non-negative integer")
     for value, name in ((config.bin_max_fill_pct, "bin_max_fill_pct"), (config.max_runtime_ms, "max_runtime_ms")):
-        if isinstance(value, bool) or not isinstance(value, Real):
-            raise InvalidConfigError(f"{name} must be numeric")
+        if isinstance(value, bool) or not isinstance(value, Real) or not isfinite(value):
+            raise InvalidConfigError(f"{name} must be a finite number")
     if not 0 < config.bin_max_fill_pct <= 100:
         raise InvalidConfigError("bin_max_fill_pct must be greater than 0 and at most 100")
     if config.max_runtime_ms <= 0:
         raise InvalidConfigError("max_runtime_ms must be positive")
     for value, name in zip((config.bin_buffer.length, config.bin_buffer.width, config.bin_buffer.height), ("length", "width", "height")):
-        if isinstance(value, bool) or not isinstance(value, Real) or value < 0:
-            raise InvalidConfigError(f"bin_buffer.{name} must be a non-negative number")
+        if (isinstance(value, bool) or not isinstance(value, Real)
+                or not isfinite(value) or value < 0):
+            raise InvalidConfigError(f"bin_buffer.{name} must be a finite non-negative number")
     if not isinstance(config.deterministic, bool):
         raise InvalidConfigError("deterministic must be boolean")
     return PackingConfig(config.strategy.strip().lower(), config.bin_max_fill_check_min_item_qty,

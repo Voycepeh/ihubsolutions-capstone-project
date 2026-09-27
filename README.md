@@ -30,48 +30,52 @@ result = solve_order(
 
 `solve_order()` is the only public solver function normal users need.
 
-## MVP roadmap
+## Architecture
 
-![3D Packing Solver MVP Roadmap](docs/images/MVP.png)
+The reusable engine is deliberately separate from search algorithms:
 
-The solver is built in four MVPs that follow the actual packing problem.
+```text
+Engine
+├── common rules and configuration
+├── orchestration and solver registry
+├── independent validation
+└── common metrics
 
-1. **MVP 1: Fit one item** — test allowed orientations and identify the smallest valid carton for one physical item.
-2. **MVP 2: Pack one carton** — expand order quantities into physical item instances, then use First Fit to sequence, orient and place as many items as possible into one carton. Return the packed items and the remaining items.
-3. **MVP 3: Pack the whole order** — repeatedly use the one-carton engine until the full order is packed. This produces the fast validated **First Fit baseline plan**.
-4. **MVP 4: Improve the plan** — use the remaining runtime to try Best Fit and selected alternative sequences. Keep an alternative only when it reduces carton count, or uses smaller total carton volume with the same carton count. If the time limit is reached, return the best validated plan already found, with the First Fit baseline as the guaranteed fallback.
+Solver plugins
+├── First Fit
+└── Best Fit
+```
 
-The core packing loop is:
-
-**sequence items → choose allowed orientation → choose XYZ position → validate placement → continue or retry**
-
-The complete functional contract is in [`src/PRODUCT_SPEC.md`](src/PRODUCT_SPEC.md).
+Solvers receive the same normalized domain objects and return a standard `PackingPlan`. The engine does not run strategies in sequence or assume how a plugin searches. It validates every proposal before returning success. First Fit and Best Fit implementations remain independently owned.
 
 ## Simplified package structure
 
 ```text
-ihubsolutions-capstone-project/
-├── src/
-│   ├── PRODUCT_SPEC.md
-│   └── bin_packing_3d/
-│       ├── __init__.py
-│       ├── models.py
-│       ├── rules.py
-│       ├── packing.py
-│       └── validate.py
-├── tests/
-│   ├── test_rules.py
-│   ├── test_packing.py
-│   ├── test_validate.py
-│   ├── test_solver.py
-│   └── fixtures/
-├── notebooks/
-├── data/raw/
-├── docs/
-└── README.md
+src/bin_packing_3d/
+├── __init__.py
+├── models.py
+├── rules.py
+├── solvers.py
+├── engine.py
+├── validate.py
+└── metrics.py
 ```
 
-The package intentionally avoids one file per helper concept. Related geometry and search logic stay together until there is a clear reason to split them.
+## Solver integration
+
+```python
+from bin_packing_3d import register_solver
+from bin_packing_3d.models import PackingPlan
+
+class FirstFitSolver:
+    name = "first_fit"
+    def solve(self, items, boxes, config):
+        return PackingPlan(...)
+
+register_solver("first_fit", FirstFitSolver())
+```
+
+Adding a strategy does not require editing the engine. No First Fit or Best Fit search implementation is included in the shared architecture.
 
 ## Key packing rules
 
@@ -102,6 +106,4 @@ Exploratory findings belong in `notebooks/`. Product behavior belongs in the pro
 
 ## Development principle
 
-Build capability in layers: prove one-item fit, then pack one carton, then solve the complete order with a fast First Fit baseline, then spend only the remaining runtime trying to improve that validated result.
-
-The historical iHub outputs are a benchmark rather than mathematical ground truth. A different arrangement is acceptable when it is valid, respects the agreed constraints and improves the stated objective.
+Solvers propose packing plans; the engine validates, measures, and returns them. Historical iHub outputs are benchmarks rather than unique mathematical truth, so evaluation separates feasibility, constraint compliance, carton choice, utilization, and runtime.

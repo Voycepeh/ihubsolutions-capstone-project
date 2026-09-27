@@ -6,7 +6,7 @@ from collections import Counter
 from .models import (
     Box, PackingConfig, PackingPlan, PhysicalItem, Placement, ValidationError, ValidationResult,
 )
-from .rules import allowed_orientations, fill_cap_applies, usable_dimensions
+from .rules import allowed_orientations, effective_max_fill_pct, usable_dimensions
 
 _EPSILON = 1e-9
 
@@ -80,10 +80,15 @@ def validate_plan(plan: PackingPlan, items: list[PhysicalItem], boxes: list[Box]
             packed_volume += item.volume
         if packed_weight > box.max_weight + _EPSILON:
             errors.append(ValidationError("weight", f"Carton '{box_id}' packed weight {packed_weight:g} exceeds maximum {box.max_weight:g}", box_instance_id=box_id))
-        if fill_cap_applies(len(items), config):
-            cap = expected_usable.volume * config.bin_max_fill_pct / 100.0
-            if packed_volume > cap + _EPSILON:
-                errors.append(ValidationError("fill_cap", f"Carton '{box_id}' packed volume {packed_volume:g} exceeds configured cap {cap:g}", box_instance_id=box_id))
+        effective_fill_pct = effective_max_fill_pct(len(items), config)
+        cap = expected_usable.volume * effective_fill_pct / 100.0
+        if packed_volume > cap + _EPSILON:
+            errors.append(ValidationError(
+                "fill_cap",
+                f"Carton '{box_id}' packed volume {packed_volume:g} exceeds "
+                f"configured {effective_fill_pct:g}% cap ({cap:g})",
+                box_instance_id=box_id,
+            ))
         for index, first in enumerate(packed_box.placements):
             for second in packed_box.placements[index + 1:]:
                 if _overlap(first, second):

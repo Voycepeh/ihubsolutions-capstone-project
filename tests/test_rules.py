@@ -2,7 +2,7 @@ import pytest
 
 from bin_packing_3d.models import InvalidConfigError, InvalidInputError, Item, Orientation, UnpackableItemError
 from bin_packing_3d.rules import (allowed_orientations, ensure_individual_feasibility, expand_items,
-    fill_cap_applies, normalize_boxes, normalize_config, normalize_order, usable_dimensions)
+    effective_max_fill_pct, normalize_boxes, normalize_config, normalize_order, usable_dimensions)
 
 
 def item(**changes):
@@ -47,10 +47,12 @@ def test_orientation_rules_and_duplicate_removal():
     assert allowed_orientations(cube) == (Orientation(2,2,2),)
 
 @pytest.mark.parametrize("config", [
-    {"bin_buffer":{"length":-1}}, {"bin_max_fill_pct":0}, {"bin_max_fill_pct":101},
-    {"bin_max_fill_pct":float("nan")}, {"max_runtime_ms":0},
+    {"bin_buffer":{"length":-1}}, {"max_fill_pct":0}, {"max_fill_pct":101},
+    {"high_item_count_max_fill_pct":0}, {"high_item_count_max_fill_pct":101},
+    {"max_fill_pct":float("nan")},
+    {"high_item_count_max_fill_pct":float("inf")}, {"max_runtime_ms":0},
     {"max_runtime_ms":float("inf")}, {"bin_buffer":{"width":float("nan")}},
-    {"bin_max_fill_check_min_item_qty":-1}, {"strategy":""},
+    {"high_item_count_threshold":-1}, {"high_item_count_threshold":1.5}, {"strategy":""},
 ])
 def test_invalid_config_is_rejected(config):
     with pytest.raises(InvalidConfigError): normalize_config(config)
@@ -60,11 +62,27 @@ def test_buffer_reduces_usable_dimensions_and_cannot_consume_carton():
     assert usable_dimensions(normalize_boxes([box()])[0], cfg) == Orientation(19,18,17)
     with pytest.raises(InvalidConfigError): usable_dimensions(normalize_boxes([box()])[0], normalize_config({"bin_buffer":{"length":20}}))
 
-def test_fill_threshold_boundary():
-    cfg=normalize_config({})
-    assert not fill_cap_applies(5,cfg)
-    assert not fill_cap_applies(6,cfg)
-    assert fill_cap_applies(7,cfg)
+@pytest.mark.parametrize(("blanket", "count", "expected"), [
+    (90, 5, 90),
+    (90, 6, 90),
+    (90, 7, 70),
+    (100, 6, 100),
+    (100, 7, 70),
+    (80, 7, 70),
+])
+def test_effective_fill_percentage_at_threshold_boundaries(blanket, count, expected):
+    config = normalize_config({
+        "max_fill_pct": blanket,
+        "high_item_count_threshold": 6,
+        "high_item_count_max_fill_pct": 70,
+    })
+    assert effective_max_fill_pct(count, config) == expected
+
+def test_expanded_quantity_drives_effective_fill_percentage():
+    _, _, source = normalize_order({"Items": [item(Quantity=7)]})
+    physical_items = expand_items(source)
+    assert len(physical_items) == 7
+    assert effective_max_fill_pct(len(physical_items), normalize_config({})) == 70
 
 def test_dimension_precheck_rejects_false_volume_fit_and_overweight():
     cfg=normalize_config({"bin_buffer":{"height":0}}); boxes=normalize_boxes([box()])

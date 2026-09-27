@@ -31,3 +31,5 @@ register_solver("first_fit", FirstFitSolver())
 ```
 
 Registration requires no change to `engine.py`. Solver output is independently checked for accounting, orientations, coordinates, boundaries, overlap, carton identity, weight, and fill before success is returned.
+
+Fill configuration uses `max_fill_pct` as the blanket carton limit. For orders whose expanded physical item count exceeds `high_item_count_threshold`, the shared rule uses the smaller of that blanket limit and `high_item_count_max_fill_pct`. Solvers receive the normalized configuration and can call the same shared rule used by final validation.

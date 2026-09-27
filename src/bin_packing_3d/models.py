@@ -135,8 +135,9 @@ class PackingPlan:
 @dataclass(frozen=True)
 class PackingConfig:
     strategy: str = "first_fit"
-    bin_max_fill_check_min_item_qty: int = 6
-    bin_max_fill_pct: float = 70.0
+    max_fill_pct: float = 100.0
+    high_item_count_threshold: int = 6
+    high_item_count_max_fill_pct: float = 70.0
     bin_buffer: Orientation = Orientation(0.0, 0.0, 6.0)
     max_runtime_ms: float = 900.0
     deterministic: bool = True

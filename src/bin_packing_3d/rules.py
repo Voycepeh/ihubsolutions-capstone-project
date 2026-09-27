@@ -107,20 +107,31 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
             return buffer.get(name, buffer.get(name.title(), 6 if name == "height" else 0))
         config = PackingConfig(
             strategy=raw.get("strategy", "first_fit"),
-            bin_max_fill_check_min_item_qty=raw.get("bin_max_fill_check_min_item_qty", raw.get("BinMaxFillCheckMinItemQty", 6)),
-            bin_max_fill_pct=raw.get("bin_max_fill_pct", raw.get("BinMaxFillPct", 70)),
+            max_fill_pct=raw.get("max_fill_pct", 100),
+            high_item_count_threshold=raw.get("high_item_count_threshold", 6),
+            high_item_count_max_fill_pct=raw.get("high_item_count_max_fill_pct", 70),
             bin_buffer=Orientation(b("length"), b("width"), b("height")),
             max_runtime_ms=raw.get("max_runtime_ms", 900), deterministic=raw.get("deterministic", True),
         )
     if not isinstance(config.strategy, str) or not config.strategy.strip():
         raise InvalidConfigError("strategy must be a non-empty string")
-    if isinstance(config.bin_max_fill_check_min_item_qty, bool) or not isinstance(config.bin_max_fill_check_min_item_qty, int) or config.bin_max_fill_check_min_item_qty < 0:
-        raise InvalidConfigError("bin_max_fill_check_min_item_qty must be a non-negative integer")
-    for value, name in ((config.bin_max_fill_pct, "bin_max_fill_pct"), (config.max_runtime_ms, "max_runtime_ms")):
+    if (isinstance(config.high_item_count_threshold, bool)
+            or not isinstance(config.high_item_count_threshold, int)
+            or config.high_item_count_threshold < 0):
+        raise InvalidConfigError("high_item_count_threshold must be a non-negative integer")
+    for value, name in (
+        (config.max_fill_pct, "max_fill_pct"),
+        (config.high_item_count_max_fill_pct, "high_item_count_max_fill_pct"),
+        (config.max_runtime_ms, "max_runtime_ms"),
+    ):
         if isinstance(value, bool) or not isinstance(value, Real) or not isfinite(value):
             raise InvalidConfigError(f"{name} must be a finite number")
-    if not 0 < config.bin_max_fill_pct <= 100:
-        raise InvalidConfigError("bin_max_fill_pct must be greater than 0 and at most 100")
+    for value, name in (
+        (config.max_fill_pct, "max_fill_pct"),
+        (config.high_item_count_max_fill_pct, "high_item_count_max_fill_pct"),
+    ):
+        if not 0 < value <= 100:
+            raise InvalidConfigError(f"{name} must be greater than 0 and at most 100")
     if config.max_runtime_ms <= 0:
         raise InvalidConfigError("max_runtime_ms must be positive")
     for value, name in zip((config.bin_buffer.length, config.bin_buffer.width, config.bin_buffer.height), ("length", "width", "height")):
@@ -129,9 +140,17 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
             raise InvalidConfigError(f"bin_buffer.{name} must be a finite non-negative number")
     if not isinstance(config.deterministic, bool):
         raise InvalidConfigError("deterministic must be boolean")
-    return PackingConfig(config.strategy.strip().lower(), config.bin_max_fill_check_min_item_qty,
-                         float(config.bin_max_fill_pct), Orientation(*map(float, (config.bin_buffer.length, config.bin_buffer.width, config.bin_buffer.height))),
-                         float(config.max_runtime_ms), config.deterministic)
+    return PackingConfig(
+        strategy=config.strategy.strip().lower(),
+        max_fill_pct=float(config.max_fill_pct),
+        high_item_count_threshold=config.high_item_count_threshold,
+        high_item_count_max_fill_pct=float(config.high_item_count_max_fill_pct),
+        bin_buffer=Orientation(*map(float, (
+            config.bin_buffer.length, config.bin_buffer.width, config.bin_buffer.height,
+        ))),
+        max_runtime_ms=float(config.max_runtime_ms),
+        deterministic=config.deterministic,
+    )
 
 
 def expand_items(items: list[Item]) -> list[PhysicalItem]:
@@ -163,8 +182,11 @@ def usable_dimensions(box: Box, config: PackingConfig) -> Orientation:
     return dimensions
 
 
-def fill_cap_applies(physical_item_count: int, config: PackingConfig) -> bool:
-    return physical_item_count > config.bin_max_fill_check_min_item_qty
+def effective_max_fill_pct(physical_item_count: int, config: PackingConfig) -> float:
+    """Return the shared carton fill limit for an expanded order quantity."""
+    if physical_item_count > config.high_item_count_threshold:
+        return min(config.max_fill_pct, config.high_item_count_max_fill_pct)
+    return config.max_fill_pct
 
 
 def item_fits_box(item: PhysicalItem, box: Box, config: PackingConfig) -> bool:

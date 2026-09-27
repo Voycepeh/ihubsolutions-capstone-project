@@ -86,7 +86,7 @@ The solver must support:
 - upright-only items through `VerticalRotation`,
 - maximum carton weight,
 - configurable carton buffer,
-- configurable fill threshold and fill percentage,
+- a blanket maximum fill percentage plus a configurable stricter limit for high-item-count orders,
 - 3D boundary and overlap checks,
 - single and multiple carton packing,
 - unpackable item reporting,

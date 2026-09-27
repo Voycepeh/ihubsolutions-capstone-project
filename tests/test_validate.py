@@ -52,6 +52,12 @@ def test_fill_cap_exact_percentage_passes_and_above_fails():
                 positions=[Position(0,0,i) for i in range(8)])
     assert "fill_cap" in codes(validate_plan(*above))
 
+def test_blanket_fill_cap_applies_below_high_item_threshold():
+    case=build(item_dimensions=(10,10,1),count=5,box_dimensions=(10,10,10),max_weight=20,
+               positions=[Position(0,0,i) for i in range(5)],
+               config={"bin_buffer":{"height":0},"max_fill_pct":40})
+    assert "fill_cap" in codes(validate_plan(*case))
+
 def test_item_accounting_missing_duplicate_unknown_and_reconciled_unpacked():
     plan,items,boxes,cfg=build()
     plan.packed_boxes[0].placements.pop()

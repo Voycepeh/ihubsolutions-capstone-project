@@ -30,8 +30,9 @@ Defaults are:
 ```python
 {
     "strategy": "first_fit",
-    "bin_max_fill_check_min_item_qty": 6,
-    "bin_max_fill_pct": 70,
+    "max_fill_pct": 100,
+    "high_item_count_threshold": 6,
+    "high_item_count_max_fill_pct": 70,
     "bin_buffer": {"length": 0, "width": 0, "height": 6},
     "max_runtime_ms": 900,
     "deterministic": True,
@@ -42,7 +43,7 @@ Defaults are:
 
 `max_runtime_ms` is the search budget communicated to the selected solver. Search termination belongs to the plugin: the engine measures elapsed solver runtime consistently but does not forcibly interrupt plugin code. Solver implementations must observe the budget if they promise time-bounded search.
 
-For an order with physical item count at or below the threshold, fill is unrestricted up to 100%. Above it, each carton's packed item volume must be no more than `bin_max_fill_pct` of its **usable** volume. This is a maximum, not a target.
+`max_fill_pct` is the blanket maximum for every carton. When the expanded physical item count is greater than `high_item_count_threshold`, the effective maximum is the smaller of `max_fill_pct` and `high_item_count_max_fill_pct`. At or below the threshold, the effective maximum is `max_fill_pct`. Thus the defaults permit up to 100% for six or fewer physical items and up to 70% for seven or more. Percentages are maximums against **usable** carton volume, not utilization targets. Quantity expansion occurs before selecting this limit, so one input row with `Quantity=7` counts as seven items.
 
 ## 3. Shared domain contract
 

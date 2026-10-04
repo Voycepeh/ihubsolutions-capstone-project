@@ -1,6 +1,7 @@
 import pytest
 
 from bin_packing_3d import solve_order
+from bin_packing_3d.models import UnpackableItemError
 
 
 BOXES = [
@@ -53,7 +54,7 @@ def test_geometry_precheck_still_rejects_volume_only_false_positive():
         {"Code": "A", "Length": 30, "Width": 10, "Height": 20, "Weight": 1,
          "Quantity": 1, "VerticalRotation": 1},
     ])
-    with pytest.raises(Exception) as exc:
+    with pytest.raises(UnpackableItemError) as exc:
         solve_order(
             impossible,
             [{"Code": "Cube", "Length": 20, "Width": 20, "Height": 20, "MaxWeight": 20}],

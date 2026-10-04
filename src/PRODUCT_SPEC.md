@@ -81,7 +81,7 @@ class PackingSolver(Protocol):
               config: PackingConfig) -> PackingPlan: ...
 ```
 
-Registration is explicit and duplicate names are rejected unless replacement is deliberately requested. The package currently provides built-in `first_fit` and `best_fit` strategies. Both use the shared axis-aligned 3D candidate-placement functions under `placement/`; strategy code decides how candidates are selected.
+Registration is explicit and duplicate names are rejected unless replacement is deliberately requested. The package currently provides built-in `first_fit` and `best_fit` strategies. Both use the shared axis-aligned 3D candidate-placement functions in `placement.py`; strategy code decides how candidates are selected.
 
 ### Explainability trace
 
@@ -116,9 +116,8 @@ Later benchmarks may compare validity rate, carton count, volume, utilization, p
 
 ```text
 src/bin_packing_3d/
-  __init__.py  models.py  rules.py  solvers.py
-  engine.py    explain.py validate.py metrics.py
-  placement/   strategies/
+  __init__.py  engine.py  models.py  rules.py
+  placement.py validate.py solvers.py strategies/
 ```
 
 Engine tests use test-only fake solvers, never disguised production heuristics. Tests cover malformed inputs/configuration, quantity IDs, rotations, buffers, threshold boundaries, individual infeasibility, overlap/touching/boundaries, weight, fill, accounting, registry behavior, orchestration, invalid proposals, metrics, serialization, and a reusable solver contract. Built-in First Fit and Best Fit strategy tests must prove valid 3D plans and distinct selection semantics. Benchmark conclusions remain outside the production API and belong in notebooks or benchmark tooling.

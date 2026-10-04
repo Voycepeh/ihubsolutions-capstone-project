@@ -111,7 +111,9 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
             high_item_count_threshold=raw.get("high_item_count_threshold", 6),
             high_item_count_max_fill_pct=raw.get("high_item_count_max_fill_pct", 70),
             bin_buffer=Orientation(b("length"), b("width"), b("height")),
-            max_runtime_ms=raw.get("max_runtime_ms", 900), deterministic=raw.get("deterministic", True),
+            max_runtime_ms=raw.get("max_runtime_ms", 900),
+            min_support_pct=raw.get("min_support_pct", 100),
+            deterministic=raw.get("deterministic", True),
         )
     if not isinstance(config.strategy, str) or not config.strategy.strip():
         raise InvalidConfigError("strategy must be a non-empty string")
@@ -123,6 +125,7 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
         (config.max_fill_pct, "max_fill_pct"),
         (config.high_item_count_max_fill_pct, "high_item_count_max_fill_pct"),
         (config.max_runtime_ms, "max_runtime_ms"),
+        (config.min_support_pct, "min_support_pct"),
     ):
         if isinstance(value, bool) or not isinstance(value, Real) or not isfinite(value):
             raise InvalidConfigError(f"{name} must be a finite number")
@@ -134,6 +137,8 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
             raise InvalidConfigError(f"{name} must be greater than 0 and at most 100")
     if config.max_runtime_ms <= 0:
         raise InvalidConfigError("max_runtime_ms must be positive")
+    if not 0 < config.min_support_pct <= 100:
+        raise InvalidConfigError("min_support_pct must be greater than 0 and at most 100")
     for value, name in zip((config.bin_buffer.length, config.bin_buffer.width, config.bin_buffer.height), ("length", "width", "height")):
         if (isinstance(value, bool) or not isinstance(value, Real)
                 or not isfinite(value) or value < 0):
@@ -149,6 +154,7 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
             config.bin_buffer.length, config.bin_buffer.width, config.bin_buffer.height,
         ))),
         max_runtime_ms=float(config.max_runtime_ms),
+        min_support_pct=float(config.min_support_pct),
         deterministic=config.deterministic,
     )
 

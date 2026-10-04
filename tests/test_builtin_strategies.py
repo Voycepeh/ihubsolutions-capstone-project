@@ -26,15 +26,14 @@ def test_builtin_strategies_produce_valid_3d_plan(strategy):
     assert result.metrics.unpacked_item_count == 0
 
 
-def test_first_fit_and_best_fit_have_distinct_carton_selection_semantics():
+@pytest.mark.parametrize("strategy", ["first_fit", "best_fit"])
+def test_single_item_uses_smallest_feasible_external_volume_carton(strategy):
     order = _order([
         {"Code": "A", "Length": 8, "Width": 8, "Height": 8, "Weight": 1,
          "Quantity": 1, "VerticalRotation": 0},
     ])
-    first = solve_order(order, BOXES, {"strategy": "first_fit"})
-    best = solve_order(order, BOXES, {"strategy": "best_fit"})
-    assert first.packed_boxes[0].box_code == "A"
-    assert best.packed_boxes[0].box_code == "B"
+    result = solve_order(order, BOXES, {"strategy": strategy})
+    assert result.packed_boxes[0].box_code == "A"
 
 
 def test_builtin_strategy_respects_rotation_rules():

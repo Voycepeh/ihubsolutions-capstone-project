@@ -52,7 +52,7 @@ def test_orientation_rules_and_duplicate_removal():
     {"max_fill_pct":float("nan")},
     {"high_item_count_max_fill_pct":float("inf")}, {"max_runtime_ms":0},
     {"max_runtime_ms":float("inf")}, {"bin_buffer":{"width":float("nan")}},
-    {"high_item_count_threshold":-1}, {"high_item_count_threshold":1.5}, {"strategy":""},
+    {"high_item_count_threshold":-1}, {"high_item_count_threshold":1.5}, {"strategy":""}, {"mode":"slow"},
 ])
 def test_invalid_config_is_rejected(config):
     with pytest.raises(InvalidConfigError): normalize_config(config)
@@ -90,3 +90,10 @@ def test_dimension_precheck_rejects_false_volume_fit_and_overweight():
     with pytest.raises(UnpackableItemError): ensure_individual_feasibility(expand_items(source),boxes,cfg)
     _,_,source=normalize_order({"Items":[item(Weight=11)]})
     with pytest.raises(UnpackableItemError): ensure_individual_feasibility(expand_items(source),boxes,cfg)
+
+
+def test_user_modes_map_to_internal_strategies():
+    assert normalize_config({}).mode == "fast"
+    assert normalize_config({}).strategy == "first_fit"
+    assert normalize_config({"mode": "fast"}).strategy == "first_fit"
+    assert normalize_config({"mode": "best"}).strategy == "best_fit"

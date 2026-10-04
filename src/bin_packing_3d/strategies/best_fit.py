@@ -55,7 +55,8 @@ class BestFitSolver:
                 candidates = feasible_placements(item, packed_box, box, item_by_id, config)
                 for candidate in candidates:
                     remaining = packed_box.usable_dimensions.volume - item.volume
-                    # New-carton objective: smallest feasible external carton first.\n                    score = (box.external_volume, remaining, box.code)
+                    # New-carton objective: smallest feasible external carton first.
+                    score = (box.external_volume, remaining, box.code)
                     new_options.append((score, packed_box, box, candidate))
             if not new_options:
                 return PackingPlan([p for p, _ in opened], [item.instance_id],

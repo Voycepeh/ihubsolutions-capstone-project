@@ -28,13 +28,13 @@ result = solve_order(
 )
 ```
 
-\`solve_order()\` is the only public solver function normal users need. Set \`trace=True\` when you want to see the shared screening decisions without changing the result:
+`solve_order()` is the only public solver function normal users need. Set `trace=True` when you want to see the shared screening decisions without changing the result:
 
-\`\`\`python
+```python
 result = solve_order(order=order, boxes=boxes, config=config, trace=True)
-\`\`\`
+```
 
-For a single item the trace prints total item count and volume, evaluates cartons in external-volume order, explains volume and dimensional rejections, shows the allowed \`VerticalRotation\` orientations, and identifies the smallest feasible carton.
+For a single item the trace prints total item count and volume, evaluates cartons in external-volume order, explains volume and dimensional rejections, shows the allowed `VerticalRotation` orientations, and identifies the smallest feasible carton.
 
 ## Architecture
 

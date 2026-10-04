@@ -116,7 +116,7 @@ The production package stays independent of pandas, notebooks, CSV output, chart
 | [Product specification](src/PRODUCT_SPEC.md) | Detailed functional rules and API contract |
 | [Solver approach and literature](docs/solver-approach-and-literature.md) | Why the packing approach was chosen |
 | [Dataset specification](docs/dataset-specification.md) | Supplied benchmark data and fields |
-| [Single Item Solver Proof](notebooks/Single%20Item%20Solver%20Proof.ipynb) | Reproducible proof using the production API and original v1 sample |
+| [Solver Demo](notebooks/Solver%20Demo.ipynb) | Demonstrates single-item, multi-item, geometry-rejection and multi-carton behavior through the production API |
 
 ## Development principle
 

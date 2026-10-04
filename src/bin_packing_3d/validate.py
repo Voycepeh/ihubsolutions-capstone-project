@@ -7,6 +7,7 @@ from .models import (
     Box, PackingConfig, PackingPlan, PhysicalItem, Placement, ValidationError, ValidationResult,
 )
 from .rules import allowed_orientations, effective_max_fill_pct, usable_dimensions
+from .placement.geometry import support_pct
 
 _EPSILON = 1e-9
 
@@ -76,6 +77,15 @@ def validate_plan(plan: PackingPlan, items: list[PhysicalItem], boxes: list[Box]
                     or placement.position.y + placement.orientation.width > expected_usable.width + _EPSILON
                     or placement.position.z + placement.orientation.height > expected_usable.height + _EPSILON):
                 errors.append(ValidationError("boundary", f"Placement for '{item.instance_id}' exceeds carton '{box_id}' usable boundary", item.instance_id, box_id))
+            support = support_pct(placement, packed_box.placements)
+            if support + _EPSILON < config.min_support_pct:
+                errors.append(ValidationError(
+                    "support",
+                    f"Placement for '{item.instance_id}' has {support:g}% base support; "
+                    f"minimum is {config.min_support_pct:g}%",
+                    item.instance_id,
+                    box_id,
+                ))
             packed_weight += item.weight
             packed_volume += item.volume
         if packed_weight > box.max_weight + _EPSILON:

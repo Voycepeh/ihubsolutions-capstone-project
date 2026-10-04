@@ -34,7 +34,7 @@ from bin_packing_3d import solve_order
 result = solve_order(
     order=order,
     boxes=boxes,
-    config={"strategy": "first_fit"},
+    config={"mode": "fast"},
 )
 ```
 
@@ -48,7 +48,7 @@ Use `trace=True` when you want a readable explanation without changing the solve
 result = solve_order(
     order=order,
     boxes=boxes,
-    config={"strategy": "first_fit"},
+    config={"mode": "fast"},
     trace=True,
 )
 ```
@@ -57,14 +57,14 @@ For the current single-item proof, the trace shows the item count and volume, ch
 
 ## Strategies
 
-The production package currently contains two strategies:
+The public API exposes two simple modes. Internally they map to the two production strategies:
 
 | Strategy | Practical behaviour |
 | --- | --- |
-| **First Fit** | Takes the first valid placement/carton found in deterministic search order. |
-| **Best Fit** | Compares feasible choices and prefers the tighter placement according to its scoring rules. |
+| **Fast** | Default. Uses the internal First Fit strategy to return a valid recommendation quickly. |
+| **Best** | Uses the internal Best Fit strategy to compare feasible choices. `max_runtime_ms` is the intended search budget; hard budget enforcement is not implemented yet. |
 
-Both strategies use the same input rules, 3D geometry checks, independent validator, and metrics. This lets us compare strategy behaviour rather than two unrelated implementations.
+Both modes use the same input rules, 3D geometry checks, independent validator, and metrics. This lets us compare strategy behaviour rather than two unrelated implementations.
 
 ## Key configurable rules
 
@@ -74,7 +74,7 @@ Both strategies use the same input rules, 3D geometry checks, independent valida
 - normal maximum fill percentage
 - item-count threshold for a stricter fill limit
 - stricter high-item-count fill percentage
-- First Fit or Best Fit strategy
+- Fast or Best mode
 
 The current defaults allow up to **100% usable volume for six or fewer physical items** and **70% for more than six**. These are operational rules, not claims that the solver can physically achieve that utilization.
 

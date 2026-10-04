@@ -105,14 +105,25 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
             raise InvalidConfigError("bin_buffer must be a mapping")
         def b(name: str) -> Any:
             return buffer.get(name, buffer.get(name.title(), 6 if name == "height" else 0))
+        mode = raw.get("mode", "fast")
+        if "strategy" in raw and "mode" not in raw:
+            # strategy remains an advanced extension hook for registered custom solvers.
+            strategy = raw["strategy"]
+            mode = "custom"
+        else:
+            strategy = {"fast": "first_fit", "best": "best_fit"}.get(mode, "")
         config = PackingConfig(
-            strategy=raw.get("strategy", "first_fit"),
+            mode=mode,
+            strategy=strategy,
             max_fill_pct=raw.get("max_fill_pct", 100),
             high_item_count_threshold=raw.get("high_item_count_threshold", 6),
             high_item_count_max_fill_pct=raw.get("high_item_count_max_fill_pct", 70),
             bin_buffer=Orientation(b("length"), b("width"), b("height")),
-            max_runtime_ms=raw.get("max_runtime_ms", 900), deterministic=raw.get("deterministic", True),
+            max_runtime_ms=raw.get("max_runtime_ms", 900),
+            deterministic=raw.get("deterministic", True),
         )
+    if not isinstance(config.mode, str) or config.mode not in {"fast", "best", "custom"}:
+        raise InvalidConfigError("mode must be 'fast' or 'best'")
     if not isinstance(config.strategy, str) or not config.strategy.strip():
         raise InvalidConfigError("strategy must be a non-empty string")
     if (isinstance(config.high_item_count_threshold, bool)
@@ -141,6 +152,7 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
     if not isinstance(config.deterministic, bool):
         raise InvalidConfigError("deterministic must be boolean")
     return PackingConfig(
+        mode=config.mode,
         strategy=config.strategy.strip().lower(),
         max_fill_pct=float(config.max_fill_pct),
         high_item_count_threshold=config.high_item_count_threshold,

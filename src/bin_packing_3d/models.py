@@ -134,6 +134,7 @@ class PackingPlan:
 
 @dataclass(frozen=True)
 class PackingConfig:
+    mode: str = "fast"
     strategy: str = "first_fit"
     max_fill_pct: float = 100.0
     high_item_count_threshold: int = 6

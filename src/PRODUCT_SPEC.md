@@ -6,14 +6,14 @@
 
 ```python
 from bin_packing_3d import solve_order
-result = solve_order(order=order, boxes=boxes, config={"strategy": "first_fit"})
+result = solve_order(order=order, boxes=boxes, config={"mode": "fast"}, trace=False)
 ```
 
 The governing principle is: **solvers propose packing plans; the engine validates, measures, and returns them.** A future API must call this same function rather than duplicate packing rules.
 
 ### Engine responsibilities
 
-The engine owns input normalization, configuration, quantity expansion, deterministic common rules, inexpensive individual-item feasibility, solver lookup, external runtime measurement, independent final validation, common metrics, and JSON-compatible results.
+The engine owns input normalization, configuration, quantity expansion, deterministic common rules, inexpensive individual-item feasibility, optional human-readable tracing, solver lookup, external runtime measurement, independent final validation, common metrics, and JSON-compatible results.
 
 ### Solver responsibilities
 
@@ -29,7 +29,7 @@ Defaults are:
 
 ```python
 {
-    "strategy": "first_fit",
+    "mode": "fast",
     "max_fill_pct": 100,
     "high_item_count_threshold": 6,
     "high_item_count_max_fill_pct": 70,
@@ -39,9 +39,9 @@ Defaults are:
 }
 ```
 
-`strategy` resolves exactly one registered solver. Invalid strategy names, percentages, thresholds, runtimes, negative buffers, and non-finite numeric values are errors, not values to repair. Buffer is subtracted from each corresponding carton dimension; non-positive usable dimensions are invalid. External dimensions remain unchanged for external-volume metrics.
+`mode` is the normal user-facing solver choice: `fast` maps to First Fit and `best` maps to Best Fit. The lower-level `strategy` registry remains an extension hook for tests and future custom solvers. Invalid modes, strategy names, percentages, thresholds, runtimes, negative buffers, and non-finite numeric values are errors, not values to repair. Buffer is subtracted from each corresponding carton dimension; non-positive usable dimensions are invalid. External dimensions remain unchanged for external-volume metrics.
 
-`max_runtime_ms` is the search budget communicated to the selected solver. Search termination belongs to the plugin: the engine measures elapsed solver runtime consistently but does not forcibly interrupt plugin code. Solver implementations must observe the budget if they promise time-bounded search.
+`max_runtime_ms` is the intended search budget, primarily for `best` mode. The engine already measures elapsed solver runtime consistently, but hard budget enforcement is not implemented yet. Until it is, documentation and benchmarks must not claim that Best stops exactly at the configured budget.
 
 `max_fill_pct` is the blanket maximum for every carton. When the expanded physical item count is greater than `high_item_count_threshold`, the effective maximum is the smaller of `max_fill_pct` and `high_item_count_max_fill_pct`. At or below the threshold, the effective maximum is `max_fill_pct`. Thus the defaults permit up to 100% for six or fewer physical items and up to 70% for seven or more. Percentages are maximums against **usable** carton volume, not utilization targets. Quantity expansion occurs before selecting this limit, so one input row with `Quantity=7` counts as seven items.
 
@@ -68,7 +68,7 @@ Before solver invocation, every physical item must pass weight and oriented-dime
 
 ```text
 raw request → normalize and validate → expand quantity → individual feasibility
-→ resolve registered strategy → time and call solver → receive PackingPlan
+→ resolve Fast or Best mode to its strategy → time and call solver → receive PackingPlan
 → independently validate → calculate common metrics → return PackingResult
 ```
 
@@ -81,7 +81,15 @@ class PackingSolver(Protocol):
               config: PackingConfig) -> PackingPlan: ...
 ```
 
-Registration is explicit and duplicate names are rejected unless replacement is deliberately requested. Adding a solver must not require editing `engine.py`.
+Registration is explicit and duplicate names are rejected unless replacement is deliberately requested. The package currently provides built-in `first_fit` and `best_fit` strategies. Both use the shared axis-aligned 3D candidate-placement functions in `placement.py`; strategy code decides how candidates are selected.
+
+### Explainability trace
+
+`solve_order(..., trace=True)` prints the normalized screening path while still returning the normal validated result. Tracing must never change solver decisions.
+
+For a single physical item, candidate cartons are inspected in ascending external-volume order. The trace shows total item count and volume, usable carton dimensions after buffer, effective volume cap, weight eligibility, each allowed orientation, dimensional failures by L/W/H, and the first feasible carton. This makes the smallest-feasible-carton behavior directly inspectable.
+
+For multiple physical items, aggregate volume is only a necessary condition. A trace must not claim that volume alone proves the items can coexist. Detailed multi-item placement tracing is a separate layer.
 
 ## 6. Independent final validation
 
@@ -91,10 +99,8 @@ The validator independently checks:
 2. unknown, missing, duplicated, and conflicting item states;
 3. item code and allowed orientation, including upright-only behavior;
 4. non-negative XYZ coordinates and usable carton boundaries;
-5. axis-aligned cuboid non-overlap (touching faces, edges, or corners is allowed);
-6. summed item weight against carton `MaxWeight`;
-7. the threshold-dependent fill cap against usable carton volume;
-8. unique carton instances, valid catalogue types, placement references, and configured usable dimensions.
+5. axis-aligned cuboid non-overlap (touching faces, edges, or corners is allowed);\n6. summed item weight against carton `MaxWeight`;
+7. the threshold-dependent fill cap against usable carton volume;\n8. unique carton instances, valid catalogue types, placement references, and configured usable dimensions.
 
 It does not trust a solver validity flag or reuse solver placement-acceptance logic. A rejected plan cannot be returned as success.
 
@@ -110,8 +116,8 @@ Later benchmarks may compare validity rate, carton count, volume, utilization, p
 
 ```text
 src/bin_packing_3d/
-  __init__.py  models.py  rules.py  solvers.py
-  engine.py    validate.py metrics.py
+  __init__.py  engine.py  models.py  rules.py
+  placement.py validate.py solvers.py strategies/
 ```
 
-Engine tests use test-only fake solvers, never disguised production heuristics. Tests cover malformed inputs/configuration, quantity IDs, rotations, buffers, threshold boundaries, individual infeasibility, overlap/touching/boundaries, weight, fill, accounting, registry behavior, orchestration, invalid proposals, metrics, serialization, and a reusable solver contract. First Fit and Best Fit implementations and benchmark conclusions are intentionally outside this architecture change.
+Engine tests use test-only fake solvers, never disguised production heuristics. Tests cover malformed inputs/configuration, quantity IDs, rotations, buffers, threshold boundaries, individual infeasibility, overlap/touching/boundaries, weight, fill, accounting, registry behavior, orchestration, invalid proposals, metrics, serialization, and a reusable solver contract. Built-in First Fit and Best Fit strategy tests must prove valid 3D plans and distinct selection semantics. Benchmark conclusions remain outside the production API and belong in notebooks or benchmark tooling.

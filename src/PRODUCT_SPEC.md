@@ -6,14 +6,14 @@
 
 ```python
 from bin_packing_3d import solve_order
-result = solve_order(order=order, boxes=boxes, config={"strategy": "first_fit"})
+result = solve_order(order=order, boxes=boxes, config={"strategy": "first_fit"}, trace=False)
 ```
 
 The governing principle is: **solvers propose packing plans; the engine validates, measures, and returns them.** A future API must call this same function rather than duplicate packing rules.
 
 ### Engine responsibilities
 
-The engine owns input normalization, configuration, quantity expansion, deterministic common rules, inexpensive individual-item feasibility, solver lookup, external runtime measurement, independent final validation, common metrics, and JSON-compatible results.
+The engine owns input normalization, configuration, quantity expansion, deterministic common rules, inexpensive individual-item feasibility, optional human-readable tracing, solver lookup, external runtime measurement, independent final validation, common metrics, and JSON-compatible results.
 
 ### Solver responsibilities
 
@@ -81,7 +81,15 @@ class PackingSolver(Protocol):
               config: PackingConfig) -> PackingPlan: ...
 ```
 
-Registration is explicit and duplicate names are rejected unless replacement is deliberately requested. Adding a solver must not require editing `engine.py`.
+Registration is explicit and duplicate names are rejected unless replacement is deliberately requested. The package currently provides built-in `first_fit` and `best_fit` strategies. Both use the shared axis-aligned 3D candidate-placement functions under `placement/`; strategy code decides how candidates are selected.
+
+### Explainability trace
+
+`solve_order(..., trace=True)` prints the normalized screening path while still returning the normal validated result. Tracing must never change solver decisions.
+
+For a single physical item, candidate cartons are inspected in ascending external-volume order. The trace shows total item count and volume, usable carton dimensions after buffer, effective volume cap, weight eligibility, each allowed orientation, dimensional failures by L/W/H, and the first feasible carton. This makes the smallest-feasible-carton behavior directly inspectable.
+
+For multiple physical items, aggregate volume is only a necessary condition. A trace must not claim that volume alone proves the items can coexist. Detailed multi-item placement tracing is a separate layer.
 
 ## 6. Independent final validation
 
@@ -111,7 +119,8 @@ Later benchmarks may compare validity rate, carton count, volume, utilization, p
 ```text
 src/bin_packing_3d/
   __init__.py  models.py  rules.py  solvers.py
-  engine.py    validate.py metrics.py
+  engine.py    explain.py validate.py metrics.py
+  placement/   strategies/
 ```
 
-Engine tests use test-only fake solvers, never disguised production heuristics. Tests cover malformed inputs/configuration, quantity IDs, rotations, buffers, threshold boundaries, individual infeasibility, overlap/touching/boundaries, weight, fill, accounting, registry behavior, orchestration, invalid proposals, metrics, serialization, and a reusable solver contract. First Fit and Best Fit implementations and benchmark conclusions are intentionally outside this architecture change.
+Engine tests use test-only fake solvers, never disguised production heuristics. Tests cover malformed inputs/configuration, quantity IDs, rotations, buffers, threshold boundaries, individual infeasibility, overlap/touching/boundaries, weight, fill, accounting, registry behavior, orchestration, invalid proposals, metrics, serialization, and a reusable solver contract. Built-in First Fit and Best Fit strategy tests must prove valid 3D plans and distinct selection semantics. Benchmark conclusions remain outside the production API and belong in notebooks or benchmark tooling.

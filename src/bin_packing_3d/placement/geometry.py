@@ -1,8 +1,8 @@
 """Shared axis-aligned 3D placement primitives used by packing strategies."""
 from __future__ import annotations
 
-from .models import Box, Orientation, PackedBox, PackingConfig, PhysicalItem, Placement, Position
-from .rules import allowed_orientations, effective_max_fill_pct
+from ..models import Box, Orientation, PackedBox, PackingConfig, PhysicalItem, Placement, Position
+from ..rules import allowed_orientations, effective_max_fill_pct
 
 
 _EPSILON = 1e-9

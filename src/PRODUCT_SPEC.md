@@ -35,13 +35,14 @@ Defaults are:
     "high_item_count_max_fill_pct": 70,
     "bin_buffer": {"length": 0, "width": 0, "height": 6},
     "max_runtime_ms": 900,
+    "min_support_pct": 100,
     "deterministic": True,
 }
 ```
 
 `strategy` resolves exactly one registered solver. Invalid strategy names, percentages, thresholds, runtimes, negative buffers, and non-finite numeric values are errors, not values to repair. Buffer is subtracted from each corresponding carton dimension; non-positive usable dimensions are invalid. External dimensions remain unchanged for external-volume metrics.
 
-`max_runtime_ms` is the search budget communicated to the selected solver. Search termination belongs to the plugin: the engine measures elapsed solver runtime consistently but does not forcibly interrupt plugin code. Solver implementations must observe the budget if they promise time-bounded search.
+`min_support_pct` defaults to 100. A placement on the carton floor has 100% support. A placement above the floor must have at least this percentage of its bottom XY face directly supported by the top faces of already placed items. This prevents physically impossible floating placements. Support is configurable so a later validated business rule can deliberately permit partial overhang.\n\n`max_runtime_ms` is the search budget communicated to the selected solver. Search termination belongs to the plugin: the engine measures elapsed solver runtime consistently but does not forcibly interrupt plugin code. Solver implementations must observe the budget if they promise time-bounded search.
 
 `max_fill_pct` is the blanket maximum for every carton. When the expanded physical item count is greater than `high_item_count_threshold`, the effective maximum is the smaller of `max_fill_pct` and `high_item_count_max_fill_pct`. At or below the threshold, the effective maximum is `max_fill_pct`. Thus the defaults permit up to 100% for six or fewer physical items and up to 70% for seven or more. Percentages are maximums against **usable** carton volume, not utilization targets. Quantity expansion occurs before selecting this limit, so one input row with `Quantity=7` counts as seven items.
 
@@ -99,10 +100,8 @@ The validator independently checks:
 2. unknown, missing, duplicated, and conflicting item states;
 3. item code and allowed orientation, including upright-only behavior;
 4. non-negative XYZ coordinates and usable carton boundaries;
-5. axis-aligned cuboid non-overlap (touching faces, edges, or corners is allowed);
-6. summed item weight against carton `MaxWeight`;
-7. the threshold-dependent fill cap against usable carton volume;
-8. unique carton instances, valid catalogue types, placement references, and configured usable dimensions.
+5. axis-aligned cuboid non-overlap (touching faces, edges, or corners is allowed);\n6. physical support: floor placements pass automatically; stacked placements must meet `min_support_pct`;\n7. summed item weight against carton `MaxWeight`;
+8. the threshold-dependent fill cap against usable carton volume;\n9. unique carton instances, valid catalogue types, placement references, and configured usable dimensions.
 
 It does not trust a solver validity flag or reuse solver placement-acceptance logic. A rejected plan cannot be returned as success.
 

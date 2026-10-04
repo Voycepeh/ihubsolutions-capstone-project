@@ -12,8 +12,34 @@ from .solvers import get_solver
 from .validate import validate_plan
 
 
-def solve_order(order: Mapping[str, Any], boxes: Any, config: Mapping[str, Any] | None = None) -> PackingResult:
-    """Normalize inputs, call one registered solver, then validate and measure it."""
+def solve_order(
+    order: Mapping[str, Any],
+    boxes: Any,
+    config: Mapping[str, Any] | None = None,
+    *,
+    trace: bool = False,
+) -> PackingResult:
+    """Solve one order through the same production path used by a future API.
+
+    Args:
+        order: Raw order containing item dimensions, weight, quantity, and
+            VerticalRotation.
+        boxes: Configurable carton catalogue. The engine sorts cartons by
+            external volume from smallest to largest during normalization.
+        config: Shared packing configuration including strategy, fill limits,
+            and carton buffer.
+        trace: When true, print human-readable pre-solver decisions. This is
+            intended for demonstrations and debugging; it does not alter the
+            selected strategy or packing result.
+
+    Returns:
+        A validated PackingResult with carton selections, XYZ placements,
+        metrics, and runtime.
+
+    Raises:
+        PackingError subclasses when input, configuration, feasibility, or a
+        solver-proposed plan is invalid.
+    """
     order_id, order_number, source_items = normalize_order(order)
     normalized_boxes = normalize_boxes(boxes)
     normalized_config = normalize_config(config)
@@ -22,6 +48,9 @@ def solve_order(order: Mapping[str, Any], boxes: Any, config: Mapping[str, Any] 
         usable_dimensions(box, normalized_config)
     physical_items = expand_items(source_items)
     ensure_individual_feasibility(physical_items, normalized_boxes, normalized_config)
+    if trace:
+        from .explain import print_pre_solver_trace
+        print_pre_solver_trace(physical_items, normalized_boxes, normalized_config)
     if normalized_config.strategy in {"first_fit", "best_fit"}:
         # Register lazily so applications and tests can still manage custom plugins.
         from .strategies import register_builtin_solvers

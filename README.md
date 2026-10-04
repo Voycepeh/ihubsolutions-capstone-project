@@ -1,22 +1,32 @@
 # 3D Bin Packing Solver
 
-NUS Industry 4.0 Master's capstone project building a reusable Python 3D bin packing and cartonization library, benchmarked against masked iHub order data.
+NUS Industry 4.0 Master's capstone project for practical carton recommendation using masked iHub order data.
 
-The package is `bin_packing_3d`. iHub is the business use case and benchmark dataset, not the package identity.
+The goal is **not** to find a mathematically perfect Tetris-like packing. The goal is to recommend a small valid carton that a ground packer can reasonably use, while leaving configurable working space for more complex orders.
 
-## What it does
+## How it works
 
-The solver accepts:
+For each order, the solver follows six practical steps:
 
-1. **Order data**: item dimensions, weight, quantity and rotation rule.
-2. **Carton catalogue**: available carton dimensions and maximum weight.
-3. **Configuration**: operational packing rules such as buffer, fill limit and placement strategy.
+1. **Check weight**  
+   Add the order weight and reject cartons that cannot carry it.
 
-It returns selected cartons, item placements, unpacked items and runtime.
+2. **Check usable volume**  
+   Add the item volumes and compare them with each carton's usable volume. The fill limit is configurable. By default, orders with six or fewer physical items may use up to 100% of usable volume; orders with more than six use up to 70%. This spare space is an operational buffer so the ground packer does not need to reproduce a perfect 3D puzzle.
 
-The objective is simple: return a valid packing plan using the **fewest cartons**, then prefer the **smallest total carton volume** when carton count is equal.
+3. **Check whether each item can physically fit**  
+   Volume alone is not enough. Each item's Length × Width × Height must fit within the carton's usable dimensions using only its allowed rotations.
 
-## Public interface
+4. **Try the items in XYZ space**  
+   The carton is treated as a 3D coordinate space. The solver tries item positions and allowed orientations inside it.
+
+5. **Reject impossible placements**  
+   An item cannot extend outside the carton or overlap another item. The XYZ placement is a feasibility check, not a precise packing instruction for the ground packer.
+
+6. **Recommend the carton**  
+   If all items can be placed, the carton is a valid recommendation. Otherwise the solver continues searching. The objective is to use the fewest cartons and, when carton count is equal, prefer the smaller total carton volume.
+
+## Use the solver
 
 ```python
 from bin_packing_3d import solve_order
@@ -24,99 +34,83 @@ from bin_packing_3d import solve_order
 result = solve_order(
     order=order,
     boxes=boxes,
-    config=config,
+    config={"strategy": "first_fit"},
 )
 ```
 
-`solve_order()` is the only public solver function normal users need. Set `trace=True` when you want to see the shared screening decisions without changing the result:
+`solve_order()` is the main public interface. The supplied carton catalogue is configurable and is not hard-coded into the solver.
+
+### See why a carton was selected
+
+Use `trace=True` when you want a readable explanation without changing the solver result:
 
 ```python
-result = solve_order(order=order, boxes=boxes, config=config, trace=True)
+result = solve_order(
+    order=order,
+    boxes=boxes,
+    config={"strategy": "first_fit"},
+    trace=True,
+)
 ```
 
-For a single item the trace prints total item count and volume, evaluates cartons in external-volume order, explains volume and dimensional rejections, shows the allowed `VerticalRotation` orientations, and identifies the smallest feasible carton.
+For the current single-item proof, the trace shows the item count and volume, checks cartons from smallest external volume upward, explains volume and dimension failures, shows allowed rotations, and identifies the smallest feasible carton.
 
-## Architecture
+## Strategies
 
-The reusable engine is deliberately separate from search algorithms:
+The production package currently contains two strategies:
 
-```text
-Engine
-├── common rules and configuration
-├── orchestration and solver registry
-├── independent validation
-└── common metrics
+| Strategy | Practical behaviour |
+| --- | --- |
+| **First Fit** | Takes the first valid placement/carton found in deterministic search order. |
+| **Best Fit** | Compares feasible choices and prefers the tighter placement according to its scoring rules. |
 
-Solver plugins
-├── First Fit
-└── Best Fit
-```
+Both strategies use the same input rules, 3D geometry checks, independent validator, and metrics. This lets us compare strategy behaviour rather than two unrelated implementations.
 
-Solvers receive the same normalized domain objects and return a standard `PackingPlan`. The engine does not run strategies in sequence or assume how a plugin searches. It validates every proposal before returning success. First Fit and Best Fit implementations remain independently owned.
+## Key configurable rules
 
-## Simplified package structure
+- carton catalogue and maximum carton weight
+- item quantity and `VerticalRotation`
+- carton Length, Width and Height buffer
+- normal maximum fill percentage
+- item-count threshold for a stricter fill limit
+- stricter high-item-count fill percentage
+- First Fit or Best Fit strategy
+
+The current defaults allow up to **100% usable volume for six or fewer physical items** and **70% for more than six**. These are operational rules, not claims that the solver can physically achieve that utilization.
+
+## Project structure
 
 ```text
 src/bin_packing_3d/
-├── __init__.py
-├── models.py
-├── rules.py
-├── solvers.py
-├── engine.py
-├── explain.py
-├── validate.py
-├── metrics.py
+├── engine.py          # solve_order orchestration
+├── models.py          # shared data structures
+├── rules.py           # common packing and configuration rules
+├── explain.py         # optional readable trace
+├── validate.py        # independent result validation
+├── metrics.py         # common result metrics
+├── solvers.py         # strategy registry
 ├── placement/
-│   └── geometry.py
+│   └── geometry.py    # shared XYZ placement checks
 └── strategies/
     ├── first_fit.py
     └── best_fit.py
 ```
 
-## Solver integration
+The production package stays independent of pandas, notebooks, CSV output, charts, and benchmark reporting. Those belong outside the API.
 
-```python
-from bin_packing_3d import register_solver
-from bin_packing_3d.models import PackingPlan
-
-class FirstFitSolver:
-    name = "first_fit"
-    def solve(self, items, boxes, config):
-        return PackingPlan(...)
-
-register_solver("first_fit", FirstFitSolver())
-```
-
-First Fit and Best Fit are built-in production strategies. They share the same 3D placement primitives, rules, validator, and metrics so comparisons measure strategy choice rather than unrelated implementations.
-
-## Key packing rules
-
-The solver must support:
-
-- configurable carton catalogue,
-- quantity expansion into physical items,
-- upright-only items through `VerticalRotation`,
-- maximum carton weight,
-- configurable carton buffer,
-- a blanket maximum fill percentage plus a configurable stricter limit for high-item-count orders,
-- 3D boundary and overlap checks,
-- single and multiple carton packing,
-- unpackable item reporting,
-- independent final validation.
-
-The exact orientation rule is illustrated in [`docs/images/exact_vertical_rotation_orientations.png`](docs/images/exact_vertical_rotation_orientations.png).
-
-## Documentation
+## Proof and deeper documentation
 
 | Document | Purpose |
 | --- | --- |
-| [`src/PRODUCT_SPEC.md`](src/PRODUCT_SPEC.md) | Functional source of truth and MVP logic |
-| [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) | Algorithm rationale and literature |
-| [`docs/dataset-specification.md`](docs/dataset-specification.md) | Supplied benchmark data and fields |
-| [`notebooks/Single Item Solver Proof.ipynb`](notebooks/Single%20Item%20Solver%20Proof.ipynb) | Reproducible v1 proof of volume and geometry screening through the production API |
-
-Exploratory findings belong in `notebooks/`. Product behavior belongs in the product spec.
+| [Product specification](src/PRODUCT_SPEC.md) | Detailed functional rules and API contract |
+| [Solver approach and literature](docs/solver-approach-and-literature.md) | Why the packing approach was chosen |
+| [Dataset specification](docs/dataset-specification.md) | Supplied benchmark data and fields |
+| [Single Item Solver Proof](notebooks/Single%20Item%20Solver%20Proof.ipynb) | Reproducible proof using the production API and original v1 sample |
 
 ## Development principle
 
-Solvers propose packing plans; the engine validates, measures, and returns them. Historical iHub outputs are benchmarks rather than unique mathematical truth, so evaluation separates feasibility, constraint compliance, carton choice, utilization, and runtime.
+**Solvers propose; the engine validates.**
+
+The solver's XYZ coordinates prove that a proposed arrangement does not exceed carton boundaries or collide. They should not be interpreted as exact instructions that a ground packer must reproduce.
+
+Historical iHub carton choices are useful benchmarks, not the only correct answer.

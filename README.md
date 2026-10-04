@@ -28,7 +28,13 @@ result = solve_order(
 )
 ```
 
-`solve_order()` is the only public solver function normal users need.
+\`solve_order()\` is the only public solver function normal users need. Set \`trace=True\` when you want to see the shared screening decisions without changing the result:
+
+\`\`\`python
+result = solve_order(order=order, boxes=boxes, config=config, trace=True)
+\`\`\`
+
+For a single item the trace prints total item count and volume, evaluates cartons in external-volume order, explains volume and dimensional rejections, shows the allowed \`VerticalRotation\` orientations, and identifies the smallest feasible carton.
 
 ## Architecture
 
@@ -57,8 +63,14 @@ src/bin_packing_3d/
 ├── rules.py
 ├── solvers.py
 ├── engine.py
+├── explain.py
 ├── validate.py
-└── metrics.py
+├── metrics.py
+├── placement/
+│   └── geometry.py
+└── strategies/
+    ├── first_fit.py
+    └── best_fit.py
 ```
 
 ## Solver integration
@@ -75,7 +87,7 @@ class FirstFitSolver:
 register_solver("first_fit", FirstFitSolver())
 ```
 
-Adding a strategy does not require editing the engine. No First Fit or Best Fit search implementation is included in the shared architecture.
+First Fit and Best Fit are built-in production strategies. They share the same 3D placement primitives, rules, validator, and metrics so comparisons measure strategy choice rather than unrelated implementations.
 
 ## Key packing rules
 
@@ -101,6 +113,7 @@ The exact orientation rule is illustrated in [`docs/images/exact_vertical_rotati
 | [`src/PRODUCT_SPEC.md`](src/PRODUCT_SPEC.md) | Functional source of truth and MVP logic |
 | [`docs/solver-approach-and-literature.md`](docs/solver-approach-and-literature.md) | Algorithm rationale and literature |
 | [`docs/dataset-specification.md`](docs/dataset-specification.md) | Supplied benchmark data and fields |
+| [`notebooks/Single Item Solver Proof.ipynb`](notebooks/Single%20Item%20Solver%20Proof.ipynb) | Reproducible v1 proof of volume and geometry screening through the production API |
 
 Exploratory findings belong in `notebooks/`. Product behavior belongs in the product spec.
 

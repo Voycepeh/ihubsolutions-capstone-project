@@ -99,5 +99,7 @@ def print_pre_solver_trace(
 
         if fitting:
             print(f"  GEOMETRY ACCEPTED: {box.code} is feasible for this item")
+            print(f"  SELECTED: {box.code} is the smallest feasible carton by external volume")
+            break
         else:
             print(f"  REJECTED by geometry: no allowed orientation fits {box.code}")

@@ -60,3 +60,14 @@ def test_geometry_precheck_still_rejects_volume_only_false_positive():
             {"strategy": "best_fit", "bin_buffer": {"height": 0}},
         )
     assert "No carton can contain" in str(exc.value)
+
+
+@pytest.mark.parametrize(("mode", "strategy"), [("fast", "first_fit"), ("best", "best_fit")])
+def test_public_modes_select_expected_builtin_strategy(mode, strategy):
+    order = _order([
+        {"Code": "A", "Length": 5, "Width": 5, "Height": 5, "Weight": 1,
+         "Quantity": 2, "VerticalRotation": 0},
+    ])
+    result = solve_order(order, BOXES, {"mode": mode, "bin_buffer": {"height": 0}})
+    assert result.strategy == strategy
+    assert result.validation.valid

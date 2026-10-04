@@ -22,6 +22,10 @@ def solve_order(order: Mapping[str, Any], boxes: Any, config: Mapping[str, Any] 
         usable_dimensions(box, normalized_config)
     physical_items = expand_items(source_items)
     ensure_individual_feasibility(physical_items, normalized_boxes, normalized_config)
+    if normalized_config.strategy in {"first_fit", "best_fit"}:
+        # Register lazily so applications and tests can still manage custom plugins.
+        from .strategies import register_builtin_solvers
+        register_builtin_solvers()
     solver = get_solver(normalized_config.strategy)
 
     started = perf_counter()

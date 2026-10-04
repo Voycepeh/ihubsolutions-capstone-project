@@ -80,23 +80,34 @@ The current defaults allow up to **100% usable volume for six or fewer physical 
 
 ## Project structure
 
+The production code is intentionally small. Each module has one clear job:
+
+| Module | Simple explanation |
+| --- | --- |
+| `engine.py` | **Runs the whole workflow.** Contains `solve_order()`, optional `trace=True` output, runtime measurement and result metrics. |
+| `models.py` | **Defines the things the solver works with.** Items, cartons, XYZ positions, placements, packing plans and returned results. |
+| `rules.py` | **Holds rules shared by every strategy.** Cleans inputs, expands quantity, handles allowed rotation, carton buffers and fill limits. |
+| `placement.py` | **Tries an item inside a carton.** Generates XYZ candidate positions and rejects placements that cross the carton boundary or collide with another item. |
+| `validate.py` | **Checks the solver's answer independently.** Makes sure every item is accounted for and the final plan respects dimensions, rotation, collision, weight and fill rules. |
+| `solvers.py` | **Provides the common strategy interface.** Lets First Fit, Best Fit, tests or future strategies plug into the same `solve_order()` workflow. |
+| `strategies/first_fit.py` | **First Fit strategy.** Uses the first valid carton and placement found in deterministic search order. |
+| `strategies/best_fit.py` | **Best Fit strategy.** Compares valid choices and selects the tighter option using its scoring rules. |
+
 ```text
 src/bin_packing_3d/
-├── engine.py          # solve_order orchestration
-├── models.py          # shared data structures
-├── rules.py           # common packing and configuration rules
-├── explain.py         # optional readable trace
-├── validate.py        # independent result validation
-├── metrics.py         # common result metrics
-├── solvers.py         # strategy registry
-├── placement/
-│   └── geometry.py    # shared XYZ placement checks
+├── __init__.py
+├── engine.py
+├── models.py
+├── rules.py
+├── placement.py
+├── validate.py
+├── solvers.py
 └── strategies/
     ├── first_fit.py
     └── best_fit.py
 ```
 
-The production package stays independent of pandas, notebooks, CSV output, charts, and benchmark reporting. Those belong outside the API.
+The production package stays independent of pandas, notebooks, CSV output, charts and benchmark reporting. Those belong outside the API.
 
 ## Proof and deeper documentation
 

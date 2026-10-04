@@ -9,6 +9,7 @@ _EPSILON = 1e-9
 
 
 def _overlap(a: Placement, b: Placement) -> bool:
+    """Return true when two cuboid interiors overlap; touching is allowed."""
     return not (
         a.position.x + a.orientation.length <= b.position.x + _EPSILON
         or b.position.x + b.orientation.length <= a.position.x + _EPSILON
@@ -20,6 +21,12 @@ def _overlap(a: Placement, b: Placement) -> bool:
 
 
 def candidate_positions(packed_box: PackedBox) -> tuple[Position, ...]:
+    """Return deterministic exposed corners worth trying next.
+
+    The origin is always a candidate. Every placed cuboid contributes one
+    point after its length, width, and height. Points are tried bottom first,
+    then front to back, then left to right.
+    """
     points = {(0.0, 0.0, 0.0)}
     for placed in packed_box.placements:
         p, o = placed.position, placed.orientation
@@ -36,6 +43,13 @@ def feasible_placements(
     item_by_id: dict[str, PhysicalItem],
     config: PackingConfig,
 ) -> list[Placement]:
+    """Enumerate valid XYZ/orientation placements for one item in one carton.
+
+    Cheap carton-wide constraints are checked first: weight and configured
+    fill cap. We then try every candidate point and allowed orientation,
+    rejecting placements that cross a usable boundary or overlap an item
+    already in the carton.
+    """
     current_weight = sum(item_by_id[p.item_instance_id].weight for p in packed_box.placements)
     if current_weight + item.weight > box.max_weight + _EPSILON:
         return []
@@ -60,6 +74,11 @@ def feasible_placements(
 
 
 def placement_envelope_volume(packed_box: PackedBox, candidate: Placement) -> float:
+    """Volume of the smallest origin-anchored cuboid enclosing placements.
+
+    Best Fit uses this only as a deterministic tie breaker after remaining
+    usable carton space. A smaller envelope keeps placements compact.
+    """
     placements = [*packed_box.placements, candidate]
     max_x = max(p.position.x + p.orientation.length for p in placements)
     max_y = max(p.position.y + p.orientation.width for p in placements)

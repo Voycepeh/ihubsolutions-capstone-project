@@ -7,16 +7,27 @@ from ..rules import usable_dimensions
 
 
 class BestFitSolver:
+    """Evaluate feasible choices and keep the tightest deterministic fit.
+
+    Unlike First Fit, this strategy does not stop at the first feasible
+    placement. It scores every feasible placement in every open carton.
+    Remaining usable space is the primary score; placement compactness and
+    coordinates provide stable tie breaking.
+    """
+
     name = "best_fit"
 
     def solve(self, items: list[PhysicalItem], boxes: list[Box], config: PackingConfig) -> PackingPlan:
+        """Build a complete Best Fit plan using shared 3D feasibility checks."""
         item_by_id = {item.instance_id: item for item in items}
+        # Use the same item ordering as First Fit so strategy is the main variable.
         ordered = sorted(items, key=lambda i: (-i.volume, -max(
             i.source_item.length, i.source_item.width, i.source_item.height
         ), i.instance_id))
         opened: list[tuple[PackedBox, Box]] = []
 
         for item in ordered:
+            # Score every feasible placement in every carton already opened.
             existing = []
             for box_index, (packed_box, box) in enumerate(opened):
                 for candidate in feasible_placements(item, packed_box, box, item_by_id, config):
@@ -36,6 +47,7 @@ class BestFitSolver:
                 packed_box.placements.append(candidate)
                 continue
 
+            # If a new carton is required, score every feasible catalogue option.
             new_options = []
             for box in boxes:
                 instance_id = f"carton-{len(opened) + 1}"

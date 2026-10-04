@@ -6,7 +6,7 @@
 
 ```python
 from bin_packing_3d import solve_order
-result = solve_order(order=order, boxes=boxes, config={"strategy": "first_fit"}, trace=False)
+result = solve_order(order=order, boxes=boxes, config={"mode": "fast"}, trace=False)
 ```
 
 The governing principle is: **solvers propose packing plans; the engine validates, measures, and returns them.** A future API must call this same function rather than duplicate packing rules.
@@ -29,7 +29,7 @@ Defaults are:
 
 ```python
 {
-    "strategy": "first_fit",
+    "mode": "fast",
     "max_fill_pct": 100,
     "high_item_count_threshold": 6,
     "high_item_count_max_fill_pct": 70,
@@ -39,9 +39,9 @@ Defaults are:
 }
 ```
 
-`strategy` resolves exactly one registered solver. Invalid strategy names, percentages, thresholds, runtimes, negative buffers, and non-finite numeric values are errors, not values to repair. Buffer is subtracted from each corresponding carton dimension; non-positive usable dimensions are invalid. External dimensions remain unchanged for external-volume metrics.
+`mode` is the normal user-facing solver choice: `fast` maps to First Fit and `best` maps to Best Fit. The lower-level `strategy` registry remains an extension hook for tests and future custom solvers. Invalid modes, strategy names, percentages, thresholds, runtimes, negative buffers, and non-finite numeric values are errors, not values to repair. Buffer is subtracted from each corresponding carton dimension; non-positive usable dimensions are invalid. External dimensions remain unchanged for external-volume metrics.
 
-`max_runtime_ms` is the search budget communicated to the selected solver. Search termination belongs to the plugin: the engine measures elapsed solver runtime consistently but does not forcibly interrupt plugin code. Solver implementations must observe the budget if they promise time-bounded search.
+`max_runtime_ms` is the intended search budget, primarily for `best` mode. The engine already measures elapsed solver runtime consistently, but hard budget enforcement is not implemented yet. Until it is, documentation and benchmarks must not claim that Best stops exactly at the configured budget.
 
 `max_fill_pct` is the blanket maximum for every carton. When the expanded physical item count is greater than `high_item_count_threshold`, the effective maximum is the smaller of `max_fill_pct` and `high_item_count_max_fill_pct`. At or below the threshold, the effective maximum is `max_fill_pct`. Thus the defaults permit up to 100% for six or fewer physical items and up to 70% for seven or more. Percentages are maximums against **usable** carton volume, not utilization targets. Quantity expansion occurs before selecting this limit, so one input row with `Quantity=7` counts as seven items.
 
@@ -68,7 +68,7 @@ Before solver invocation, every physical item must pass weight and oriented-dime
 
 ```text
 raw request → normalize and validate → expand quantity → individual feasibility
-→ resolve registered strategy → time and call solver → receive PackingPlan
+→ resolve Fast or Best mode to its strategy → time and call solver → receive PackingPlan
 → independently validate → calculate common metrics → return PackingResult
 ```
 

@@ -213,7 +213,7 @@ The XYZ coordinates prove that a proposed arrangement is geometrically valid. Th
 
 ## Optional logging and 3D visualization
 
-Use `logs=True` to inspect screening and search decisions:
+Both outputs are optional and do not change the packing result.
 
 ```python
 result = solve_order(
@@ -221,21 +221,59 @@ result = solve_order(
     boxes=boxes,
     mode="fast",
     logs=True,
-)
-```
-
-Use `visualize=True` to render the validated packing:
-
-```python
-result = solve_order(
-    order=order,
-    boxes=boxes,
-    mode="fast",
     visualize=True,
 )
 ```
 
-Logging and visualization do not change the packing result.
+<details>
+<summary><strong>Show example decision log</strong></summary>
+
+```text
+=== 3D packing log ===
+
+Order summary
+Metric                 | Value
+-----------------------+----------------
+Physical items         | 8
+Total item volume      | 5,883,400 mm^3
+Total item weight      | 2.5305 kg
+Effective maximum fill | 70%
+
+Candidate cartons
+Carton | Result
+-------+------------------------------------------------
+Box2   | REJECTED by volume
+Box4   | PASSED screen; evaluated during 3D search
+Box8   | PASSED screen; evaluated during 3D search
+Box5   | PASSED screen; evaluated during 3D search
+Box6   | PASSED screen; evaluated during 3D search
+Box9   | PASSED screen; evaluated during 3D search
+
+3D search decisions
+9#1   | Box2 | REJECTED | crossed usable carton bounds
+9#1   | Box4 | PLACED   | best-scoring new carton and 3D placement
+30#1  | Box4 | PLACED   | best-scoring feasible position
+2#1   | Box4 | PLACED   | best-scoring feasible position
+103#1 | Box4 | PLACED   | best-scoring feasible position
+103#2 | Box4 | PLACED   | best-scoring feasible position
+332#1 | Box4 | PLACED   | best-scoring feasible position
+95#1  | Box4 | PLACED   | best-scoring feasible position
+73#1  | Box4 | PLACED   | best-scoring feasible position
+
+Final decision
+Selected carton(s): Box4
+```
+
+</details>
+
+<details>
+<summary><strong>Show example 3D packing visualization</strong></summary>
+
+The visualization shows the validated item cuboids inside the selected carton, including item labels, XYZ axes, carton type, used space, and free space.
+
+![Validated Box4 packing for sample order 80](docs/images/order80_box4_visualization.png)
+
+</details>
 
 ## Current development benchmark
 

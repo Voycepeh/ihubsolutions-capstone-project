@@ -143,15 +143,13 @@ If the model proves that a carton combination is impossible, Best can move to th
 
 ## What does "best" mean?
 
-The solver compares packing plans in this order:
+The solver compares valid packing plans in this order:
 
-1. **Fewer cartons**
-2. **Smaller largest carton**
-3. **Smaller total carton volume**
+1. **Use the smallest number of cartons**
+2. **Use the smallest possible carton**
+3. **Use the smallest total carton volume**
 
 This objective is applied consistently when Best searches carton combinations.
-
-For example, one Box8 is preferred over Box4 + Box8 because carton count is the first priority. If two plans use the same number of cartons, the solver then compares the largest carton used, followed by total external carton volume.
 
 ## Why Best requires more computation
 

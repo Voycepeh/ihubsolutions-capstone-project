@@ -80,9 +80,24 @@ flowchart LR
 
 The engine does not trust a strategy simply because it returned a packing. Every proposed plan is checked independently for item accounting, allowed orientation, carton boundaries, collisions, weight, fill limits, and carton identity before it can be returned.
 
+## Why the product now has Fast and Best
+
+The original notebook work started with a simpler First Fit approach. It placed items sequentially into available cartons, but benchmarking showed that this could lead to unnecessarily high carton counts.
+
+The stronger Best Fit heuristic consistently produced better packing results while keeping latency practical, so the original First Fit mode was retired. That stronger heuristic is now the production **Fast** mode.
+
+The name **Best** is now reserved for a different implementation: Fast first produces a validated fallback, then **Google OR-Tools CP-SAT** performs a bounded exact search for a better packing.
+
+```mermaid
+flowchart LR
+    A[Original First Fit<br/>simple sequential placement] -->|Retired| B[Fast<br/>strong greedy heuristic]
+    B --> C[Best<br/>Fast fallback + bounded optimization]
+    C --> D[Google OR-Tools CP-SAT]
+```
+
 ## Fast vs Best
 
-The two modes solve the same problem differently.
+The two modes solve the same packing problem differently.
 
 ### Fast: greedy heuristic
 
@@ -108,7 +123,9 @@ It then asks a different question:
 
 > Does there exist any valid arrangement of all items inside a better carton combination?
 
-For each candidate carton combination, Best uses OR-Tools CP-SAT to solve the packing decisions together.
+For each candidate carton combination, Best uses **Google OR-Tools CP-SAT** to solve the packing decisions together.
+
+CP-SAT stands for **Constraint Programming - Satisfiability**. It is an external open-source optimization solver from Google's OR-Tools suite and is included as a project dependency. Our implementation defines the 3D cartonization variables, constraints, objective order, search budget, fallback behaviour, and final validation around that solver.
 
 ```mermaid
 flowchart TD
@@ -138,6 +155,15 @@ For a fixed carton combination, the exact model decides:
 - whether every pair of items is separated in at least one direction
 - whether every item remains inside its carton
 - whether carton weight and fill limits are satisfied
+
+<details>
+<summary><strong>Show example of the allowed orientation constraint</strong></summary>
+
+The solver does not rotate items arbitrarily. The orientations available to both Fast and Best are derived from the item's supplied rotation rule.
+
+![Allowed orientations under the VerticalRotation rule](docs/images/exact_vertical_rotation_orientations.png)
+
+</details>
 
 If the model proves that a carton combination is impossible, Best can move to the next candidate with confidence. If it finds a feasible arrangement after all better combinations have been ruled out, the result can be marked as proven optimal under the solver objective.
 
@@ -287,6 +313,8 @@ The current benchmark reruns Fast and Best across the 2,000 masked v2 developmen
 | Best vs policy-compliant iHub | **67 better, 1,750 equal, 0 worse** |
 
 The Fast fallback means Best cannot intentionally return a worse solver objective than Fast. The benchmark therefore shows how often the bounded exact search successfully improves that fallback.
+
+The iHub comparison should also be read with the packing policy in mind. Some recorded iHub solutions use a large Box9 as a catch-all even when the supplied fill policy would reject that packing. For this reason, the fairest comparison is against the **1,817 policy-compliant iHub references** shown above rather than raw carton count across all 2,000 orders.
 
 ### Warm latency on the saved development run
 

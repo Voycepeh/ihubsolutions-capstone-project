@@ -70,6 +70,7 @@ def benchmark(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
         rows.append({
             "order_id": order["OrderId"],
             "physical_items": sum(item["Quantity"] for item in order["Items"]),
+            "candidate_boxes": len(boxes),
             "ihub_boxes": ",".join(reference_codes),
             "ihub_cartons": len(reference_codes),
             "ihub_external_volume_mm3": reference_objective.total_carton_volume,

@@ -50,10 +50,50 @@ def _p95(values: list[float]) -> float:
     return ordered[max(0, math.ceil(0.95 * len(ordered)) - 1)]
 
 
-def benchmark(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def benchmark_mode(
+    records: list[dict[str, Any]],
+    mode: str,
+) -> list[dict[str, Any]]:
+    """Run one solver mode across the benchmark records."""
+    if mode not in {"fast", "best"}:
+        raise ValueError("mode must be 'fast' or 'best'")
+
     rows: list[dict[str, Any]] = []
     for record in records:
         order, boxes, solver_config = _inputs(record)
+        result = solve_order(order, boxes, mode=mode, **solver_config)
+        rows.append({
+            "order_id": order["OrderId"],
+            f"{mode}_boxes": ",".join(box.box_code for box in result.packed_boxes),
+            f"{mode}_cartons": result.metrics.box_count,
+            f"{mode}_external_volume_mm3": result.metrics.total_external_box_volume,
+            f"{mode}_largest_carton_volume_mm3": result.metrics.largest_external_box_volume,
+            f"{mode}_runtime_ms": result.runtime_ms,
+            f"{mode}_optimality_proven": result.optimality_proven,
+            f"{mode}_search_status": result.search_status,
+            f"{mode}_effective_fill_cap_pct": result.effective_fill_cap_pct,
+        })
+    return rows
+
+
+def combine_benchmarks(
+    records: list[dict[str, Any]],
+    fast_rows: list[dict[str, Any]],
+    best_rows: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Combine Fast, Best, and iHub reference results without rerunning solvers."""
+    fast_by_order = {row["order_id"]: row for row in fast_rows}
+    best_by_order = {row["order_id"]: row for row in best_rows}
+    rows: list[dict[str, Any]] = []
+
+    for record in records:
+        order, boxes, _ = _inputs(record)
+        order_id = order["OrderId"]
+        fast = fast_by_order[order_id]
+        best = best_by_order[order_id]
+        if fast["fast_effective_fill_cap_pct"] != best["best_effective_fill_cap_pct"]:
+            raise AssertionError("Fast and Best returned different effective fill caps")
+
         box_by_code = {box["Code"]: box for box in boxes}
         reference = record["output"]["Data"]["BinsPacked"]
         reference_codes = [box["Code"] for box in reference]
@@ -63,12 +103,10 @@ def benchmark(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             * box_by_code[code]["Height"]
             for code in reference_codes
         )
-        fast = solve_order(order, boxes, mode="fast", **solver_config)
-        best = solve_order(order, boxes, mode="best", **solver_config)
-        if fast.effective_fill_cap_pct != best.effective_fill_cap_pct:
-            raise AssertionError("Fast and Best returned different effective fill caps")
+        fill_cap = fast["fast_effective_fill_cap_pct"]
+
         rows.append({
-            "order_id": order["OrderId"],
+            "order_id": order_id,
             "physical_items": sum(item["Quantity"] for item in order["Items"]),
             "candidate_boxes": len(boxes),
             "ihub_boxes": ",".join(reference_codes),
@@ -77,25 +115,20 @@ def benchmark(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "ihub_largest_carton_volume_mm3": reference_objective.largest_carton_volume,
             "ihub_latency_ms": record["latency_ms"],
             "ihub_box9_over_fill_cap": any(
-                box["Code"] == "Box9" and box["UsedSpace"] > fast.effective_fill_cap_pct
+                box["Code"] == "Box9" and box["UsedSpace"] > fill_cap
                 for box in reference
             ),
-            "fast_boxes": ",".join(box.box_code for box in fast.packed_boxes),
-            "fast_cartons": fast.metrics.box_count,
-            "fast_external_volume_mm3": fast.metrics.total_external_box_volume,
-            "fast_largest_carton_volume_mm3": fast.metrics.largest_external_box_volume,
-            "fast_runtime_ms": fast.runtime_ms,
-            "fast_optimality_proven": fast.optimality_proven,
-            "fast_search_status": fast.search_status,
-            "best_boxes": ",".join(box.box_code for box in best.packed_boxes),
-            "best_cartons": best.metrics.box_count,
-            "best_external_volume_mm3": best.metrics.total_external_box_volume,
-            "best_largest_carton_volume_mm3": best.metrics.largest_external_box_volume,
-            "best_runtime_ms": best.runtime_ms,
-            "best_optimality_proven": best.optimality_proven,
-            "best_search_status": best.search_status,
+            **{key: value for key, value in fast.items() if key != "order_id" and key != "fast_effective_fill_cap_pct"},
+            **{key: value for key, value in best.items() if key != "order_id" and key != "best_effective_fill_cap_pct"},
         })
     return rows
+
+
+def benchmark(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Run Fast and Best, then combine them with the iHub reference outputs."""
+    fast_rows = benchmark_mode(records, "fast")
+    best_rows = benchmark_mode(records, "best")
+    return combine_benchmarks(records, fast_rows, best_rows)
 
 
 def print_summary(rows: list[dict[str, Any]]) -> None:

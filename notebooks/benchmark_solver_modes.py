@@ -23,12 +23,26 @@ sys.path.insert(0, str(ROOT / "src"))
 from bin_packing_3d import PackingObjective, packing_objective, solve_order  # noqa: E402
 
 
-def _inputs(record: dict[str, Any]) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def _inputs(
+    record: dict[str, Any],
+) -> tuple[dict[str, Any], list[dict[str, Any]], dict[str, Any]]:
     raw = record["input"]
     items = [dict(item) for item in raw["Items"]["ItemsList"]]
     boxes = [dict(box) for box in raw["Bins"]["BinsList"]]
     order = {"OrderId": raw.get("OrderId"), "OrderNo": raw.get("OrderNo"), "Items": items}
-    return order, boxes
+    parameters = raw["Bins"]["Parameters"]
+    buffer = parameters["BinBuffer"]
+    solver_config = {
+        "high_item_count_threshold": parameters["BinMaxFillCheckMinItemQty"],
+        "high_item_count_max_fill_pct": parameters["BinMaxFillPct"],
+        "max_fill_pct": 100,
+        "bin_buffer": {
+            "length": buffer["Length"],
+            "width": buffer["Width"],
+            "height": buffer["Height"],
+        },
+    }
+    return order, boxes, solver_config
 
 
 def _p95(values: list[float]) -> float:
@@ -39,7 +53,7 @@ def _p95(values: list[float]) -> float:
 def benchmark(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for record in records:
-        order, boxes = _inputs(record)
+        order, boxes, solver_config = _inputs(record)
         box_by_code = {box["Code"]: box for box in boxes}
         reference = record["output"]["Data"]["BinsPacked"]
         reference_codes = [box["Code"] for box in reference]
@@ -49,13 +63,13 @@ def benchmark(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             * box_by_code[code]["Height"]
             for code in reference_codes
         )
-        fast = solve_order(order, boxes, mode="fast")
-        best = solve_order(order, boxes, mode="best")
+        fast = solve_order(order, boxes, mode="fast", **solver_config)
+        best = solve_order(order, boxes, mode="best", **solver_config)
         if fast.effective_fill_cap_pct != best.effective_fill_cap_pct:
             raise AssertionError("Fast and Best returned different effective fill caps")
         rows.append({
             "order_id": order["OrderId"],
-            "physical_items": fast.metrics.packed_item_count,
+            "physical_items": sum(item["Quantity"] for item in order["Items"]),
             "ihub_boxes": ",".join(reference_codes),
             "ihub_cartons": len(reference_codes),
             "ihub_external_volume_mm3": reference_objective.total_carton_volume,

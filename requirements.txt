@@ -1,6 +1,8 @@
-# Add project dependencies here as they are introduced.
-# Example:
-# pandas
-# numpy
-# scikit-learn
-# matplotlib
+# Optional 3D packing visualization used by the solver demo.
+matplotlib>=3.8
+
+# Notebook-native tabular presentation used by display_result().
+ipython>=8.0
+
+# Exact constraint search used by Best mode.
+ortools==9.10.4067

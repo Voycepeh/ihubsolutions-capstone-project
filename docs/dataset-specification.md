@@ -77,6 +77,14 @@ The same seven candidate cartons appear in every supplied record. All have `MaxW
 
 Dimensions are in mm and maximum weight is in kg.
 
+## Solver unit contract
+
+The production solver deliberately follows the source dataset without a unit
+conversion. Item dimensions, carton dimensions, `BinBuffer` values, packed XYZ
+coordinates, and visualization axes are all millimetres (mm). Derived volumes
+are cubic millimetres (`mm^3`). Item weight and carton `MaxWeight` remain
+kilograms (kg).
+
 ## Packing parameters
 
 The request includes configurable packing rules under `input.Bins.Parameters`.

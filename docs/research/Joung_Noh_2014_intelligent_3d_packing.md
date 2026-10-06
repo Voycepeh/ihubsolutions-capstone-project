@@ -50,16 +50,16 @@ Try useful XYZ candidate positions from the bottom / left / back first
     ↓
 Reject carton-boundary, overlap, weight, fill, buffer or rotation violations
     ↓
-First Fit: stop at the first valid placement
-or
-Best Fit: score valid placements within the configured search limits
+Fast: score feasible placements and try bounded carton combinations
+then, when requested,
+Best: test better carton combinations with exact CP-SAT feasibility
     ↓
 Update remaining empty rectangular spaces
     ↓
 Continue until packed, then independently validate
 ```
 
-The important performance rule is that **First Fit remains the low-search baseline**. Best Fit is only justified if benchmark evidence shows that its extra candidate evaluation materially reduces carton count or total carton volume without breaking the latency target.
+The important performance rule is that **Fast remains the low-search validated baseline**. Exact-assisted Best is justified by the measured improvement in carton objective while retaining the fallback and staying within the latency target for representative orders.
 
 ## Relationship to the current MVP roadmap
 
@@ -69,9 +69,9 @@ The paper does not change the staged development plan.
 
 **MVP 1** introduces multi-item XYZ placement, overlap checks, remaining empty spaces, and bottom-left-back biased candidate ordering.
 
-**MVP 2** compares First Fit and Best Fit on exactly the same geometry engine and item ordering. This isolates the speed-versus-packing-quality tradeoff instead of comparing two unrelated implementations.
+**MVP 2** originally compared constructive heuristics on the same geometry engine. The production design now exposes the stronger heuristic as Fast and uses an exact constraint model for Best, while the independent validator remains shared.
 
-More expensive techniques such as genetic algorithms, simulated annealing, deeper backtracking, or arbitrary-shape CAD processing remain deferred unless benchmark results show they are needed.
+More expensive techniques such as genetic algorithms, simulated annealing, or arbitrary-shape CAD processing remain deferred. Exact cuboid feasibility is bounded by `max_runtime_ms` and safely falls back to Fast.
 
 ## Credit and use
 

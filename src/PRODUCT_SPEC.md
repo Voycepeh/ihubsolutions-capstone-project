@@ -6,26 +6,33 @@
 
 ```python
 from bin_packing_3d import solve_order
-result = solve_order(order=order, boxes=boxes, config={"mode": "fast"}, trace=False)
+result = solve_order(
+    order=order,
+    boxes=boxes,
+    mode="fast",
+    dimension_unit="mm",
+    logs=False,
+    visualize=False,
+)
 ```
 
 The governing principle is: **solvers propose packing plans; the engine validates, measures, and returns them.** A future API must call this same function rather than duplicate packing rules.
 
 ### Engine responsibilities
 
-The engine owns input normalization, configuration, quantity expansion, deterministic common rules, inexpensive individual-item feasibility, optional human-readable tracing, solver lookup, external runtime measurement, independent final validation, common metrics, and JSON-compatible results.
+The engine owns input normalization, configuration, quantity expansion, deterministic common rules, inexpensive individual-item feasibility, optional human-readable tracing and 3D display, solver lookup, external runtime measurement, independent final validation, common metrics, and JSON-compatible results.
 
 ### Solver responsibilities
 
-A registered solver receives normalized `PhysicalItem`, `Box`, and `PackingConfig` objects and returns a standard `PackingPlan`. It owns item sequencing, candidate positions, empty-space representation, placement scoring, carton choice, backtracking, and search termination. First Fit, Best Fit, and future strategies are independent plugins; this package layer neither implements nor automatically chains them.
+A registered solver receives normalized `PhysicalItem`, `Box`, and `PackingConfig` objects and returns a standard `PackingPlan`. It owns item sequencing, candidate positions, empty-space representation, placement scoring, carton choice, backtracking, and search termination. Fast, Best, and future strategies share this contract.
 
-Validity always precedes optimization. Solvers should optimize `bins_number`: fewer cartons, then lower total external carton volume, then utilization, with deterministic ties. Different valid geometry is acceptable.
+Validity always precedes optimization. Solvers should optimize `bins_number`: fewer cartons, then a smaller largest-carton volume to avoid an unnecessary catch-all carton, then lower total external carton volume, with deterministic ties. Different valid geometry is acceptable.
 
 ## 2. Input and configuration
 
-Each item requires `Code`, positive `Length`, `Width`, `Height` (mm), positive unit `Weight` (kg), positive integer `Quantity`, and boolean/0-or-1 `VerticalRotation`; `UOM` is optional. Preserve supplied `OrderId` and `OrderNo`. Each catalogue carton requires `Code`, positive dimensions, and positive `MaxWeight`; the catalogue is input, never hard-coded.
+Each item requires `Code`, positive `Length`, `Width`, `Height` in the solver's canonical unit of millimetres (mm), positive unit `Weight` (kg), positive integer `Quantity`, and boolean/0-or-1 `VerticalRotation`; `UOM` is optional. Preserve supplied `OrderId` and `OrderNo`. Each catalogue carton requires `Code`, positive dimensions in mm, and positive `MaxWeight`; the catalogue is input, never hard-coded. `BinBuffer` values and returned XYZ coordinates also use mm; derived volumes use cubic millimetres (`mm^3`). This deliberately matches the raw iHub benchmark contract without a conversion step.
 
-Defaults are:
+The corresponding keyword defaults in the public `solve_order()` signature are:
 
 ```python
 {
@@ -39,9 +46,9 @@ Defaults are:
 }
 ```
 
-`mode` is the normal user-facing solver choice: `fast` maps to First Fit and `best` maps to Best Fit. The lower-level `strategy` registry remains an extension hook for tests and future custom solvers. Invalid modes, strategy names, percentages, thresholds, runtimes, negative buffers, and non-finite numeric values are errors, not values to repair. Buffer is subtracted from each corresponding carton dimension; non-positive usable dimensions are invalid. External dimensions remain unchanged for external-volume metrics.
+`mode` is the normal user-facing solver choice: `fast` maps to the deterministic heuristic and `best` maps to exact-assisted Best Fit. The lower-level `strategy` registry remains an extension hook for tests and future custom solvers. Invalid modes, strategy names, percentages, thresholds, runtimes, negative buffers, and non-finite numeric values are errors, not values to repair. Buffer is subtracted from each corresponding carton dimension; non-positive usable dimensions are invalid. External dimensions remain unchanged for external-volume metrics.
 
-`max_runtime_ms` is the intended search budget, primarily for `best` mode. The engine already measures elapsed solver runtime consistently, but hard budget enforcement is not implemented yet. Until it is, documentation and benchmarks must not claim that Best stops exactly at the configured budget.
+`max_runtime_ms` bounds the Fast baseline plus exact carton search in `best` mode. OR-Tools initialization is treated as process warm-up and occurs before the measured solver call. CP-SAT receives the remaining budget after model construction. Small scheduler and solver shutdown overhead can make observed runtime slightly exceed the requested budget, so it is a search deadline rather than an engine interruption.
 
 `max_fill_pct` is the blanket maximum for every carton. When the expanded physical item count is greater than `high_item_count_threshold`, the effective maximum is the smaller of `max_fill_pct` and `high_item_count_max_fill_pct`. At or below the threshold, the effective maximum is `max_fill_pct`. Thus the defaults permit up to 100% for six or fewer physical items and up to 70% for seven or more. Percentages are maximums against **usable** carton volume, not utilization targets. Quantity expansion occurs before selecting this limit, so one input row with `Quantity=7` counts as seven items.
 
@@ -81,15 +88,15 @@ class PackingSolver(Protocol):
               config: PackingConfig) -> PackingPlan: ...
 ```
 
-Registration is explicit and duplicate names are rejected unless replacement is deliberately requested. The package currently provides built-in `first_fit` and `best_fit` strategies. Both use the shared axis-aligned 3D candidate-placement functions in `placement.py`; strategy code decides how candidates are selected.
+Registration is explicit and duplicate names are rejected unless replacement is deliberately requested. The package provides built-in `fast_fit` and `best_fit` strategies. Fast uses shared axis-aligned candidate placement and a bounded fixed-carton heuristic. Best retains the complete Fast plan, enumerates carton combinations by fewer cartons, smaller largest carton, then lower total external carton volume, and uses CP-SAT to decide exact orthogonal 3D feasibility under rotation, boundary, non-overlap, weight, buffer, and fill constraints. It returns the first feasible combination in that order. If every preceding combination is proven infeasible, `optimality_proven=True`; if the deadline is reached, Best returns Fast with `search_status="time_limit"` and does not claim a proof.
 
-### Explainability trace
+### Explainability logs
 
-`solve_order(..., trace=True)` prints the normalized screening path while still returning the normal validated result. Tracing must never change solver decisions.
+`solve_order(..., logs=True)` prints the normalized screening path, actual item/carton search attempts, rejection reasons, and final validated assignments while still returning the normal validated result. Logging must never change solver decisions.
 
-For a single physical item, candidate cartons are inspected in ascending external-volume order. The trace shows total item count and volume, usable carton dimensions after buffer, effective volume cap, weight eligibility, each allowed orientation, dimensional failures by L/W/H, and the first feasible carton. This makes the smallest-feasible-carton behavior directly inspectable.
+For a single physical item, candidate cartons are inspected in ascending external-volume order. The log shows total item count and volume, usable carton dimensions after buffer, effective volume cap, weight eligibility, each allowed orientation, dimensional failures by L/W/H, and the first feasible carton. This makes the smallest-feasible-carton behavior directly inspectable.
 
-For multiple physical items, aggregate volume is only a necessary condition. A trace must not claim that volume alone proves the items can coexist. Detailed multi-item placement tracing is a separate layer.
+For multiple physical items, aggregate volume is only a necessary condition. A log must not claim that volume alone proves the items can coexist. It must distinguish an initial screening pass from a successful 3D placement and report item-level failures caused by weight, fill limits, usable boundaries, or collisions when the strategy attempts those placements.
 
 ## 6. Independent final validation
 
@@ -108,9 +115,9 @@ A manually understandable valid geometry is a `20 × 20 × 20` carton with two `
 
 ## 7. Metrics and runtime
 
-The engine uses a monotonic high-resolution timer around the plugin call. This measurement is consistent across plugins; `max_runtime_ms` remains a solver search budget rather than an engine-enforced interruption deadline. Metrics include carton count, packed and unpacked counts, total packed item volume, total **external** carton volume, overall packed-volume/external-volume utilization, runtime milliseconds, and per-carton packed weight, volume, and usable-volume utilization. Benchmark aggregation stays outside `solve_order()`.
+The engine runs an optional solver warm-up hook, then uses a monotonic high-resolution timer around the plugin call. `max_runtime_ms` remains a cooperative solver search deadline rather than a forcibly interrupted engine deadline. Metrics include carton count, packed and unpacked counts, total packed item volume, total **external** carton volume, overall packed-volume/external-volume utilization, runtime milliseconds, and per-carton packed weight, volume, and usable-volume utilization. Results also expose `optimality_proven` and `search_status`. Benchmark aggregation stays outside `solve_order()`.
 
-Later benchmarks may compare validity rate, carton count, volume, utilization, packed counts, median/P95 runtime, ties, improvement frequency, and overhead. Historical iHub layouts are reference results, not unique geometric truth. Do not claim First Fit versus Best Fit conclusions until both real plugins exist.
+`notebooks/benchmark_solver_modes.py` compares validity, carton count and type, total external carton volume, median/P95 warm latency, improvement frequency, and the recorded iHub latency. Historical iHub layouts are reference results, not unique geometric truth. The report must identify constraint-policy differences, such as Box9 reference results above the supplied fill cap, rather than mislabeling them as optimization wins or losses.
 
 ## 8. Package and testing
 
@@ -120,4 +127,4 @@ src/bin_packing_3d/
   placement.py validate.py solvers.py strategies/
 ```
 
-Engine tests use test-only fake solvers, never disguised production heuristics. Tests cover malformed inputs/configuration, quantity IDs, rotations, buffers, threshold boundaries, individual infeasibility, overlap/touching/boundaries, weight, fill, accounting, registry behavior, orchestration, invalid proposals, metrics, serialization, and a reusable solver contract. Built-in First Fit and Best Fit strategy tests must prove valid 3D plans and distinct selection semantics. Benchmark conclusions remain outside the production API and belong in notebooks or benchmark tooling.
+Engine tests use test-only fake solvers, never disguised production heuristics. Tests cover malformed inputs/configuration, quantity IDs, rotations, buffers, threshold boundaries, individual infeasibility, overlap/touching/boundaries, weight, fill, accounting, registry behavior, orchestration, invalid proposals, metrics, serialization, and a reusable solver contract. Built-in Fast and Best tests must prove valid 3D plans, ordered-objective behavior, and proof-status reporting. Benchmark conclusions remain outside the production API and belong in notebooks or benchmark tooling.

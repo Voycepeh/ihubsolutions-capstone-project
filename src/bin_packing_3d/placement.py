@@ -73,6 +73,64 @@ def feasible_placements(
     return feasible
 
 
+def placement_rejection_reason(
+    item: PhysicalItem,
+    packed_box: PackedBox,
+    box: Box,
+    item_by_id: dict[str, PhysicalItem],
+    config: PackingConfig,
+) -> str:
+    """Explain why ``feasible_placements`` returned no placement.
+
+    This diagnostic follows the same weight, fill, boundary, and collision
+    checks as the placement search. Call it only after the search returns an
+    empty list so logging does not add work to successful placements.
+    """
+    current_weight = sum(item_by_id[p.item_instance_id].weight for p in packed_box.placements)
+    if current_weight + item.weight > box.max_weight + _EPSILON:
+        return (
+            f"weight limit: {current_weight + item.weight:g} kg exceeds "
+            f"{box.max_weight:g} kg"
+        )
+
+    current_volume = sum(item_by_id[p.item_instance_id].volume for p in packed_box.placements)
+    fill_pct = effective_max_fill_pct(len(item_by_id), config)
+    fill_cap = packed_box.usable_dimensions.volume * fill_pct / 100.0
+    if current_volume + item.volume > fill_cap + _EPSILON:
+        return (
+            f"fill limit: {current_volume + item.volume:g} mm^3 exceeds "
+            f"{fill_cap:g} mm^3 ({fill_pct:g}%)"
+        )
+
+    boundary_failures = 0
+    collision_failures = 0
+    for position in candidate_positions(packed_box):
+        for orientation in allowed_orientations(item):
+            if (
+                position.x + orientation.length > packed_box.usable_dimensions.length + _EPSILON
+                or position.y + orientation.width > packed_box.usable_dimensions.width + _EPSILON
+                or position.z + orientation.height > packed_box.usable_dimensions.height + _EPSILON
+            ):
+                boundary_failures += 1
+                continue
+            candidate = Placement(
+                item.instance_id,
+                item.code,
+                packed_box.instance_id,
+                orientation,
+                position,
+            )
+            if any(_overlap(candidate, placed) for placed in packed_box.placements):
+                collision_failures += 1
+
+    details = []
+    if boundary_failures:
+        details.append(f"{boundary_failures} crossed usable carton bounds")
+    if collision_failures:
+        details.append(f"{collision_failures} overlapped packed items")
+    return "3D geometry: " + ("; ".join(details) or "no candidate placement was feasible")
+
+
 def placement_envelope_volume(packed_box: PackedBox, candidate: Placement) -> float:
     """Volume of the smallest origin-anchored cuboid enclosing placements.
 

@@ -111,16 +111,23 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
             strategy = raw["strategy"]
             mode = "custom"
         else:
-            strategy = {"fast": "first_fit", "best": "best_fit"}.get(mode, "")
+            strategy = {"fast": "fast_fit", "best": "best_fit"}.get(mode, "")
         config = PackingConfig(
             mode=mode,
             strategy=strategy,
             max_fill_pct=raw.get("max_fill_pct", 100),
-            high_item_count_threshold=raw.get("high_item_count_threshold", 6),
-            high_item_count_max_fill_pct=raw.get("high_item_count_max_fill_pct", 70),
+            high_item_count_threshold=raw.get(
+                "high_item_count_threshold",
+                raw.get("BinMaxFillCheckMinItemQty", 6),
+            ),
+            high_item_count_max_fill_pct=raw.get(
+                "high_item_count_max_fill_pct",
+                raw.get("BinMaxFillPct", 70),
+            ),
             bin_buffer=Orientation(b("length"), b("width"), b("height")),
             max_runtime_ms=raw.get("max_runtime_ms", 900),
             deterministic=raw.get("deterministic", True),
+            trace_enabled=raw.get("trace_enabled", False),
         )
     if not isinstance(config.mode, str) or config.mode not in {"fast", "best", "custom"}:
         raise InvalidConfigError("mode must be 'fast' or 'best'")
@@ -151,6 +158,8 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
             raise InvalidConfigError(f"bin_buffer.{name} must be a finite non-negative number")
     if not isinstance(config.deterministic, bool):
         raise InvalidConfigError("deterministic must be boolean")
+    if not isinstance(config.trace_enabled, bool):
+        raise InvalidConfigError("trace_enabled must be boolean")
     return PackingConfig(
         mode=config.mode,
         strategy=config.strategy.strip().lower(),
@@ -162,6 +171,7 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
         ))),
         max_runtime_ms=float(config.max_runtime_ms),
         deterministic=config.deterministic,
+        trace_enabled=config.trace_enabled,
     )
 
 

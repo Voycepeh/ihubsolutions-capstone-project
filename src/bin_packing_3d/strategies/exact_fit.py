@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from itertools import combinations_with_replacement
 from time import perf_counter
-import sys
-import types
 from functools import lru_cache
 
 from ..models import Box, Orientation, PackedBox, PackingConfig, PackingPlan, PhysicalItem, Placement, Position
@@ -14,24 +12,8 @@ from .best_fit import FastFitSolver
 
 @lru_cache(maxsize=1)
 def _cp_model_module():
-    """Load OR-Tools while tolerating environments that block optional pandas binaries."""
-    try:
-        import pandas  # noqa: F401
-    except (ImportError, OSError):
-        for name in tuple(sys.modules):
-            if name == "pandas" or name.startswith("pandas."):
-                sys.modules.pop(name, None)
-        stub = types.ModuleType("pandas")
-        stub.Series = type("Series", (), {})
-        stub.DataFrame = type("DataFrame", (), {})
-        stub.Index = type("Index", (), {})
-        sys.modules["pandas"] = stub
-        try:
-            from ortools.sat.python import cp_model
-        finally:
-            sys.modules.pop("pandas", None)
-    else:
-        from ortools.sat.python import cp_model
+    """Load the OR-Tools CP-SAT module used by Best mode."""
+    from ortools.sat.python import cp_model
     return cp_model
 
 

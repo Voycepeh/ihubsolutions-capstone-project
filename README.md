@@ -114,20 +114,15 @@ For each candidate carton combination, Best uses OR-Tools CP-SAT to solve the pa
 flowchart TD
     A[Fast produces a valid plan] --> B[Use it as the current best result]
     B --> C[Try a better carton combination]
-    C --> D[Exact feasibility model]
 
-    D --> D1[Choose carton assignment]
-    D --> D2[Choose allowed orientation]
-    D --> D3[Choose X Y Z position]
-    D --> D4[Enforce no overlap]
-    D --> D5[Enforce weight and fill limits]
+    C --> D
 
-    D1 --> E{Feasible?}
-    D2 --> E
-    D3 --> E
-    D4 --> E
-    D5 --> E
+    subgraph D["Exact feasibility model"]
+        direction TB
+        D1["1. Choose carton assignment<br/>2. Choose allowed orientation<br/>3. Choose X, Y, Z position<br/>4. Enforce no overlap<br/>5. Enforce weight and fill limits"]
+    end
 
+    D --> E{Feasible?}
     E -->|Yes| F[Return improved result<br/>when all better choices are ruled out]
     E -->|No| G[Try next carton combination]
     G --> C

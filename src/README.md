@@ -12,7 +12,7 @@ bin_packing_3d/
 └── metrics.py     # common measurements
 ```
 
-Normal users need only `from bin_packing_3d import solve_order`. The engine does not implement First Fit or Best Fit: each is a plugin receiving normalized objects and returning `PackingPlan`.
+Normal users need only `from bin_packing_3d import solve_order`. Fast, Best, and custom solvers are plugins receiving normalized objects and returning `PackingPlan`; the engine independently validates every proposal.
 
 ## Adding a solver
 
@@ -20,14 +20,14 @@ Normal users need only `from bin_packing_3d import solve_order`. The engine does
 from bin_packing_3d import register_solver
 from bin_packing_3d.models import PackingPlan
 
-class FirstFitSolver:
-    name = "first_fit"
+class CustomSolver:
+    name = "custom"
 
     def solve(self, items, boxes, config):
         # Search implementation remains owned by this plugin.
         return PackingPlan(...)
 
-register_solver("first_fit", FirstFitSolver())
+register_solver("custom", CustomSolver())
 ```
 
 Registration requires no change to `engine.py`. Solver output is independently checked for accounting, orientations, coordinates, boundaries, overlap, carton identity, weight, and fill before success is returned.

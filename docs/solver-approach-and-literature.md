@@ -2,7 +2,7 @@
 
 ## Project Direction
 
-The project will build a lightweight 3D cartonization solver that aims to find a good valid packing quickly rather than prove the mathematically best possible packing for every order.
+The project provides a lightweight 3D cartonization solver with a fast heuristic mode and an exact-assisted mode. Best proves the ordered carton objective when the configured time budget permits and otherwise returns a validated heuristic fallback without claiming proof.
 
 The primary objective is to minimize the number of cartons used while respecting item dimensions, allowed rotation, carton weight, fill rules and configured clearance.
 
@@ -25,7 +25,7 @@ A **heuristic** is a practical rule-based method that tries to find a good solut
 
 ## 1. Shared 3D Placement Approach
 
-The solver first builds a fast valid plan with deterministic First Fit. Only after that complete baseline exists does it spend remaining runtime trying to improve the plan.
+The solver first builds a fast valid plan with a deterministic scored-placement heuristic and bounded fixed-carton search. Best then spends the remaining budget testing carton combinations with an exact constraint model.
 
 The shared one-carton engine works with rectangular items placed only in allowed 90-degree orientations. It tracks remaining empty rectangular spaces and tests useful candidate positions rather than scanning every XYZ coordinate.
 
@@ -41,23 +41,23 @@ The core placement loop is:
 
 The one-carton engine returns both the packed items and the remaining physical items. The full-order solver repeats this engine across cartons until nothing remains or an item is unpackable.
 
-## 2. First Fit Baseline and Best Fit Improvement
+## 2. Fast Baseline and Exact-Assisted Best
 
-### First Fit baseline
+### Fast baseline
 
-MVPs 1 to 3 use First Fit. It accepts the first valid candidate placement in deterministic order.
+Fast scores feasible placements in every open carton, opens the smallest suitable catalogue carton when needed, and tries promising fixed-carton combinations. The weaker first-placement-only implementation is no longer a production mode.
 
 This gives the solver a fast, complete and validated fallback plan before any more expensive search begins.
 
-### Best Fit improvement
+### Best exact search
 
-MVP 4 uses Best Fit as an improvement search. It evaluates more valid placement choices using the same geometry and business rules.
+Best retains Fast, enumerates carton combinations by carton count, largest external carton volume, and total external carton volume, then uses CP-SAT to decide whether a complete orthogonal 3D packing exists.
 
-An improved plan is kept only when it uses fewer cartons, or the same number of cartons with lower total external carton volume.
+The exact model covers allowed orientations, carton assignment, usable boundaries, pairwise non-overlap, weight, fill cap, and buffer-adjusted dimensions. The independent validator still checks every returned placement.
 
-If the improvement search reaches the runtime limit, the solver returns the best validated plan already found. The First Fit baseline is therefore always available as a fallback.
+If the exact search reaches the runtime limit, the solver returns Fast with `optimality_proven=False` and `search_status="time_limit"`. When every better combination is proven infeasible, it returns `optimality_proven=True`.
 
-The experiment is whether the extra runtime produces a material business improvement in carton count or carton volume.
+The benchmark measures whether the additional proof time produces a material business improvement while staying within the latency target.
 
 ## 3. Why Volume Alone Is Not Enough
 
@@ -75,7 +75,7 @@ The solver must therefore check actual dimensions, allowed orientation and 3D pl
 
 Packing order matters because an early placement can make later items harder or easier to fit.
 
-The initial deterministic order should prioritize harder items first, using the agreed product specification. The first version currently prioritizes restricted rotation, then larger volume, then larger longest dimension, with a stable item identifier as the final tie-break.
+Fast currently orders by larger volume, then larger longest dimension, with a stable item identifier as the final tie-break. Best's exact model is not dependent on this item sequence.
 
 Other item orders can later be compared without changing the geometry engine, for example:
 
@@ -104,15 +104,15 @@ A carton should never be treated as valid merely because enough total volume rem
 The implementation roadmap is:
 
 1. **MVP 1 — Fit one item:** prove orientation rules and smallest valid carton selection.
-2. **MVP 2 — Pack one carton:** expand quantity into physical item instances and use First Fit to pack one carton, returning packed plus remaining items.
-3. **MVP 3 — Pack the whole order:** repeatedly reuse the one-carton engine to create a complete validated First Fit baseline.
-4. **MVP 4 — Improve the plan:** use remaining runtime for Best Fit and selected alternative sequences; keep only a complete plan with fewer cartons or lower total carton volume at equal carton count.
+2. **MVP 2 — Pack one carton:** expand quantity into physical item instances and construct a valid 3D plan.
+3. **MVP 3 — Pack the whole order:** create a complete validated heuristic baseline.
+4. **MVP 4 — Improve and prove:** retain Fast, test better carton combinations with exact CP-SAT feasibility, and report proof or time-limited fallback status.
 
 This gives the solver an anytime structure: a valid baseline is available first, then extra computation is spent only on potential improvement.
 
 ## 7. Evaluation
 
-The benchmark should compare the MVP 3 First Fit baseline with the final result after MVP 4 improvement.
+The benchmark compares production Fast with exact-assisted Best and the masked iHub reference results.
 
 | Measure | Purpose |
 | --- | --- |
@@ -120,7 +120,7 @@ The benchmark should compare the MVP 3 First Fit baseline with the final result 
 | Cartons used | Primary optimization outcome |
 | Total carton volume | Secondary objective when carton count is equal |
 | Space utilization | Later tie break and diagnostic |
-| First Fit baseline runtime | Time to guaranteed valid fallback |
+| Fast baseline runtime | Time to guaranteed valid fallback |
 | Total runtime | Cost after improvement search |
 | Orders with fewer cartons after improvement | Direct business benefit |
 | Orders with smaller carton volume at equal carton count | Secondary business benefit |
@@ -129,9 +129,9 @@ The benchmark should compare the MVP 3 First Fit baseline with the final result 
 
 The main experimental question is:
 
-> Does the additional Best Fit search time actually reduce carton count or total carton volume often enough to justify the latency?
+> Does the additional exact Best search reduce carton count or carton volume often enough to justify the latency, and how often does it complete a proof?
 
-The improvement stage should never make the system less reliable because the validated First Fit baseline is retained throughout.
+The improvement stage should never make the system less reliable because the validated Fast baseline is retained throughout.
 
 ## 8. Literature Rationale
 
@@ -151,13 +151,13 @@ This paper is a direct conceptual inspiration for our solver flow: order difficu
 
 We do **not** copy the paper's implementation. Their system handles free-form 3D CAD geometry and performs shape grouping, repeated orientation comparison, CAD movement and collision checking. Our iHub problem is materially simpler because the input objects are rectangular cuboids with explicit length, width and height. We therefore keep the constructive ideas while implementing a much lighter bounded search suitable for real-time cartonization.
 
-The runtime results in the paper are also not a target for this project. In its SAE J1100 comparison, the proposed method reported 35 loaded pieces with 0.8138 efficiency in 27 minutes, while the compared genetic algorithm reported 21 loaded pieces with 0.6974 efficiency in 68 minutes. Those results demonstrate the tradeoff between packing quality and computation for complex CAD packing, but a 27-minute solver would be unusable for the iHub use case. Our solver must remain sub-second for representative orders, and First Fit versus Best Fit is specifically intended to quantify how much packing improvement can be purchased without sacrificing that latency requirement.
+The runtime results in the paper are also not a target for this project. In its SAE J1100 comparison, the proposed method reported 35 loaded pieces with 0.8138 efficiency in 27 minutes, while the compared genetic algorithm reported 21 loaded pieces with 0.6974 efficiency in 68 minutes. Those results demonstrate the tradeoff between packing quality and computation for complex CAD packing, but a 27-minute solver would be unusable for the iHub use case. Fast versus exact-assisted Best quantifies how much packing improvement and proof can be purchased without sacrificing the sub-second target for representative orders.
 
 The project also reviewed `Xebet/3d-packing-simulator`, which demonstrates a practical implementation using remaining empty rectangular spaces, candidate placement positions, multiple orientations, overlap checks and independent validation. The project does not copy that implementation wholesale; it uses those established ideas as references for an independently developed Python solver with iHub-specific rules.
 
 The MIT Scalable Spectral Packing work provides another useful conceptual comparison: order the objects, search for collision-free placements, score placement quality and repeat. Its voxel-grid and Fast Fourier Transform approach is aimed at more general 3D shapes and is therefore not selected for this rectangular-item MVP.
 
-Together, these sources support the current design choice: build a simple First Fit solution first, retain it as a validated fallback, then spend only the remaining runtime on Best Fit or selected retries and keep them only when they materially improve carton count or total carton volume.
+Together, these sources support the current design choice: build a strong heuristic plan first, retain it as a validated fallback, then spend only the remaining runtime proving or finding a better carton objective with exact constraint search.
 
 ## References
 

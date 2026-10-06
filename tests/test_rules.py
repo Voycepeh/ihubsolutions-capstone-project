@@ -84,6 +84,14 @@ def test_expanded_quantity_drives_effective_fill_percentage():
     assert len(physical_items) == 7
     assert effective_max_fill_pct(len(physical_items), normalize_config({})) == 70
 
+def test_source_fill_parameter_names_are_accepted():
+    config = normalize_config({
+        "BinMaxFillCheckMinItemQty": 4,
+        "BinMaxFillPct": 65,
+    })
+    assert config.high_item_count_threshold == 4
+    assert config.high_item_count_max_fill_pct == 65
+
 def test_dimension_precheck_rejects_false_volume_fit_and_overweight():
     cfg=normalize_config({"bin_buffer":{"height":0}}); boxes=normalize_boxes([box()])
     _,_,source=normalize_order({"Items":[item(Length=30,Width=10,Height=20)]})
@@ -94,6 +102,6 @@ def test_dimension_precheck_rejects_false_volume_fit_and_overweight():
 
 def test_user_modes_map_to_internal_strategies():
     assert normalize_config({}).mode == "fast"
-    assert normalize_config({}).strategy == "first_fit"
-    assert normalize_config({"mode": "fast"}).strategy == "first_fit"
+    assert normalize_config({}).strategy == "fast_fit"
+    assert normalize_config({"mode": "fast"}).strategy == "fast_fit"
     assert normalize_config({"mode": "best"}).strategy == "best_fit"

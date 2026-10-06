@@ -2,7 +2,8 @@ import pytest
 
 from bin_packing_3d.models import InvalidConfigError, InvalidInputError, Item, Orientation, UnpackableItemError
 from bin_packing_3d.rules import (allowed_orientations, ensure_individual_feasibility, expand_items,
-    effective_max_fill_pct, normalize_boxes, normalize_config, normalize_order, usable_dimensions)
+    effective_max_fill_pct, normalize_boxes, normalize_config, normalize_order, packing_objective,
+    usable_dimensions)
 
 
 def item(**changes):
@@ -83,6 +84,12 @@ def test_expanded_quantity_drives_effective_fill_percentage():
     physical_items = expand_items(source)
     assert len(physical_items) == 7
     assert effective_max_fill_pct(len(physical_items), normalize_config({})) == 70
+
+
+def test_packing_objective_orders_count_then_largest_then_total_volume():
+    assert packing_objective([1000]) < packing_objective([1, 1])
+    assert packing_objective([8, 8]) < packing_objective([10, 1])
+    assert packing_objective([10, 5]) < packing_objective([10, 6])
 
 def test_source_fill_parameter_names_are_accepted():
     config = normalize_config({

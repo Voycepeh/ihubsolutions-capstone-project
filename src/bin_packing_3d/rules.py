@@ -1,14 +1,14 @@
 """Normalization and deterministic business rules shared by every solver."""
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from math import isfinite
 from numbers import Real
 from typing import Any
 
 from .models import (
     Box, InvalidConfigError, InvalidInputError, Item, Orientation, PackingConfig,
-    PhysicalItem, UnpackableItemError,
+    PackingObjective, PhysicalItem, UnpackableItemError,
 )
 
 
@@ -209,6 +209,16 @@ def effective_max_fill_pct(physical_item_count: int, config: PackingConfig) -> f
     if physical_item_count > config.high_item_count_threshold:
         return min(config.max_fill_pct, config.high_item_count_max_fill_pct)
     return config.max_fill_pct
+
+
+def packing_objective(external_box_volumes: Iterable[float]) -> PackingObjective:
+    """Return the shared lexicographic objective for a carton collection."""
+    volumes = tuple(external_box_volumes)
+    return PackingObjective(
+        carton_count=len(volumes),
+        largest_carton_volume=max(volumes, default=0.0),
+        total_carton_volume=sum(volumes),
+    )
 
 
 def item_fits_box(item: PhysicalItem, box: Box, config: PackingConfig) -> bool:

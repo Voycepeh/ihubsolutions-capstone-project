@@ -37,12 +37,29 @@ def test_complete_engine_flow_metrics_and_json_serialization():
     assert result.status == "success" and result.validation.valid
     assert result.order_id == 42 and result.order_number == "N-42"
     assert result.metrics.box_count == 1
+    assert result.metrics.largest_external_box_volume == 2000
     assert result.metrics.packed_item_count == 2 and result.metrics.unpacked_item_count == 0
     assert result.metrics.total_external_box_volume == 2000
     assert result.metrics.total_packed_item_volume == 250
     assert result.metrics.overall_utilization_pct == 12.5
     assert result.runtime_ms == result.metrics.runtime_ms
+    assert result.objective == (1, 2000, 2000)
+    assert result.effective_fill_cap_pct == 100
     json.dumps(result.to_dict())
+
+
+@pytest.mark.parametrize(("quantity", "expected"), [(6, 100), (7, 70)])
+def test_result_exposes_quantity_aware_effective_fill_cap(quantity, expected):
+    order = {
+        "Items": [{
+            "Code": "A", "Length": 1, "Width": 1, "Height": 1,
+            "Weight": 0.1, "Quantity": quantity, "VerticalRotation": 0,
+        }]
+    }
+    boxes = [{"Code": "B", "Length": 20, "Width": 20, "Height": 20, "MaxWeight": 20}]
+    result = solve_order(order, boxes, mode="fast", bin_buffer={"height": 0})
+    assert result.metrics.packed_item_count == quantity
+    assert result.effective_fill_cap_pct == expected
 
 def test_result_string_is_readable():
     register_solver("fake",RowSolver())

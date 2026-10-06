@@ -9,7 +9,7 @@ from ..placement import (
     placement_envelope_volume,
     placement_rejection_reason,
 )
-from ..rules import effective_max_fill_pct, usable_dimensions
+from ..rules import effective_max_fill_pct, packing_objective, usable_dimensions
 
 
 class FastFitSolver:
@@ -38,12 +38,7 @@ class FastFitSolver:
             volumes = [
                 box_volume.get(box.box_code, float("inf")) for box in plan.packed_boxes
             ]
-            return (
-                len(plan.unpacked_item_ids),
-                len(plan.packed_boxes),
-                max(volumes, default=0.0),
-                sum(volumes),
-            )
+            return (len(plan.unpacked_item_ids), *packing_objective(volumes))
 
         candidate = min((plan for plan in candidates if plan is not None), key=score)
         if score(candidate) < score(baseline):
@@ -189,7 +184,7 @@ class FastFitSolver:
             combinations = sorted(
                 combinations_with_replacement(boxes, carton_count),
                 key=lambda choice: (
-                    sum(box.external_volume for box in choice),
+                    *packing_objective(box.external_volume for box in choice),
                     tuple(box.code for box in choice),
                 ),
             )
@@ -247,8 +242,10 @@ class FastFitSolver:
 
             if valid_plans:
                 volume_by_code = {box.code: box.external_volume for box in boxes}
-                return min(valid_plans, key=lambda plan: (
-                    max(volume_by_code[packed.box_code] for packed in plan.packed_boxes),
-                    sum(volume_by_code[packed.box_code] for packed in plan.packed_boxes),
-                ))
+                return min(
+                    valid_plans,
+                    key=lambda plan: packing_objective(
+                        volume_by_code[packed.box_code] for packed in plan.packed_boxes
+                    ),
+                )
         return None

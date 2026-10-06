@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from typing import Any
+from typing import Any, NamedTuple
 
 
 class PackingError(Exception):
@@ -145,6 +145,14 @@ class PackingConfig:
     trace_enabled: bool = False
 
 
+class PackingObjective(NamedTuple):
+    """Lexicographic carton objective used by every packing strategy."""
+
+    carton_count: int
+    largest_carton_volume: float
+    total_carton_volume: float
+
+
 @dataclass(frozen=True)
 class ValidationError:
     code: str
@@ -170,6 +178,7 @@ class BoxMetrics:
 @dataclass(frozen=True)
 class PackingMetrics:
     box_count: int
+    largest_external_box_volume: float
     total_external_box_volume: float
     total_packed_item_volume: float
     overall_utilization_pct: float
@@ -177,6 +186,15 @@ class PackingMetrics:
     unpacked_item_count: int
     runtime_ms: float
     boxes: list[BoxMetrics] = field(default_factory=list)
+
+    @property
+    def objective(self) -> PackingObjective:
+        """Return the canonical carton-selection objective for this result."""
+        return PackingObjective(
+            self.box_count,
+            self.largest_external_box_volume,
+            self.total_external_box_volume,
+        )
 
 
 @dataclass
@@ -192,10 +210,16 @@ class PackingResult:
     validation: ValidationResult
     optimality_proven: bool = False
     search_status: str = "heuristic"
+    effective_fill_cap_pct: float = 100.0
 
     @property
     def placements(self) -> list[Placement]:
         return [p for box in self.packed_boxes for p in box.placements]
+
+    @property
+    def objective(self) -> PackingObjective:
+        """Return the canonical carton-selection objective."""
+        return self.metrics.objective
 
     def __str__(self) -> str:
         """Return a concise, human-readable summary of the packing result."""

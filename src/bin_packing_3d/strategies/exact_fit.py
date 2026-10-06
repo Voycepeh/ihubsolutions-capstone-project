@@ -8,7 +8,7 @@ import types
 from functools import lru_cache
 
 from ..models import Box, Orientation, PackedBox, PackingConfig, PackingPlan, PhysicalItem, Placement, Position
-from ..rules import allowed_orientations, effective_max_fill_pct, item_fits_box, usable_dimensions
+from ..rules import allowed_orientations, effective_max_fill_pct, item_fits_box, packing_objective, usable_dimensions
 from .best_fit import FastFitSolver
 
 
@@ -59,8 +59,7 @@ class BestFitSolver:
             choices = sorted(
                 combinations_with_replacement(boxes, carton_count),
                 key=lambda choice: (
-                    max(box.external_volume for box in choice),
-                    sum(box.external_volume for box in choice),
+                    *packing_objective(box.external_volume for box in choice),
                     tuple(box.code for box in choice),
                 ),
             )

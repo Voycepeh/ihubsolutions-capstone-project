@@ -6,7 +6,7 @@ from time import perf_counter
 from typing import Literal
 
 from .models import Box, BoxMetrics, InvalidPackingPlanError, Orientation, PackingConfig, PackingMetrics, PackingPlan, PackingResult, PhysicalItem, ValidationError
-from .rules import allowed_orientations, effective_max_fill_pct, ensure_individual_feasibility, expand_items, normalize_boxes, normalize_config, normalize_order, usable_dimensions
+from .rules import allowed_orientations, effective_max_fill_pct, ensure_individual_feasibility, expand_items, normalize_boxes, normalize_config, normalize_order, packing_objective, usable_dimensions
 from .solvers import get_solver
 from .validate import validate_plan
 
@@ -204,7 +204,11 @@ def _print_plan_logs(
 def calculate_metrics(plan: PackingPlan, items: list[PhysicalItem], boxes: list[Box], runtime_ms: float) -> PackingMetrics:
     item_by_id = {item.instance_id: item for item in items}
     box_by_code = {box.code: box for box in boxes}
-    total_external = sum(box_by_code[b.box_code].external_volume for b in plan.packed_boxes if b.box_code in box_by_code)
+    objective = packing_objective(
+        box_by_code[b.box_code].external_volume
+        for b in plan.packed_boxes
+        if b.box_code in box_by_code
+    )
     total_packed = sum(item_by_id[p.item_instance_id].volume for p in plan.placements if p.item_instance_id in item_by_id)
     per_box: list[BoxMetrics] = []
     for packed_box in plan.packed_boxes:
@@ -214,9 +218,14 @@ def calculate_metrics(plan: PackingPlan, items: list[PhysicalItem], boxes: list[
         per_box.append(BoxMetrics(packed_box.instance_id, sum(item.weight for item in known), volume,
                                   100.0 * volume / usable_volume if usable_volume else 0.0))
     return PackingMetrics(
-        box_count=len(plan.packed_boxes), total_external_box_volume=total_external,
+        box_count=len(plan.packed_boxes),
+        largest_external_box_volume=objective.largest_carton_volume,
+        total_external_box_volume=objective.total_carton_volume,
         total_packed_item_volume=total_packed,
-        overall_utilization_pct=100.0 * total_packed / total_external if total_external else 0.0,
+        overall_utilization_pct=(
+            100.0 * total_packed / objective.total_carton_volume
+            if objective.total_carton_volume else 0.0
+        ),
         packed_item_count=len(plan.placements), unpacked_item_count=len(plan.unpacked_item_ids),
         runtime_ms=runtime_ms, boxes=per_box,
     )
@@ -364,6 +373,7 @@ def solve_order(
         validation,
         bool(plan.metadata.get("optimality_proven", False)),
         str(plan.metadata.get("search_status", "heuristic")),
+        effective_max_fill_pct(len(physical_items), normalized_config),
     )
     if visualize:
         from .visualize import visualize_result

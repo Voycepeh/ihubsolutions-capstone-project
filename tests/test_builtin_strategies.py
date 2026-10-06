@@ -84,17 +84,7 @@ def test_best_mode_never_returns_a_worse_objective_than_fast_mode():
     fast = solve_order(order, BOXES, mode="fast", bin_buffer={"height": 0})
     best = solve_order(order, BOXES, mode="best", bin_buffer={"height": 0})
 
-    fast_objective = (
-        fast.metrics.box_count,
-        max(box.usable_dimensions.volume for box in fast.packed_boxes),
-        fast.metrics.total_external_box_volume,
-    )
-    best_objective = (
-        best.metrics.box_count,
-        max(box.usable_dimensions.volume for box in best.packed_boxes),
-        best.metrics.total_external_box_volume,
-    )
-    assert best_objective <= fast_objective
+    assert best.objective <= fast.objective
     assert best.packed_boxes
 
 

@@ -35,6 +35,17 @@ The normal solver choice is:
 
 Best starts from the Fast result, then uses its remaining runtime budget to search for a better packing. If the search budget is exhausted, the validated Fast result remains the fallback.
 
+### Why Best is computationally heavy
+
+Best does more work because it starts with the Fast packing and then searches alternative carton combinations with an exact 3D feasibility model. As the order contains more items and the catalogue contains more carton types, there are more carton combinations, assignments, orientations, positions, and non-overlap relationships to evaluate.
+
+The scaling benchmark makes that cost visible. With a 5 second Best search budget, Best proved optimality through the 30-item cases in this synthetic grid. From 50 items onward, every Best run reached the search limit. At the largest tested case — **100 items × 20 carton types** — median end-to-end solver time was about **75 seconds**, showing that the surrounding candidate search can itself become expensive even when the exact-search budget is bounded.
+
+![Best solver scaling heatmap](benchmark_results/solver_scaling/solver_scaling_best_heatmap.png)
+
+The benchmark varies **5–100 items per order** and **3–20 available carton types**, with three deterministic repeats per combination. The full [summary](benchmark_results/solver_scaling/summary.csv), [raw results](benchmark_results/solver_scaling/raw_results.csv), and [reusable benchmark script](notebooks/benchmark_solver_scaling.py) are retained in the repository.
+
+
 ## Inputs
 
 ### Order

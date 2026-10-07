@@ -379,6 +379,8 @@ src/bin_packing_3d/
 | --- | --- |
 | [Product specification](src/PRODUCT_SPEC.md) | Detailed functional rules and API contract |
 | [Solver approach and literature](docs/solver-approach-and-literature.md) | Background research and design rationale |
+| [Fast solver under the hood](docs/fast-solver-under-the-hood.md) | Engineer guide to the bounded heuristic and 3D placement scoring |
+| [Best solver under the hood](docs/best-solver-under-the-hood.md) | Engineer guide to the bounded CP-SAT exact search |
 | [Dataset specification](docs/dataset-specification.md) | Supplied development data and fields |
 | [Solver Demo](notebooks/Solver%20Demo.ipynb) | Worked examples, Fast/Best/iHub comparisons, visualization, and the 2,000-order benchmark |
 

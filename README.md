@@ -276,6 +276,12 @@ result = solve_order(
 
 This makes Best a deliberate tradeoff: callers can give the optimizer more time when carton reduction matters, or keep the search tightly bounded when response time matters.
 
+### Fast vs Best latency
+
+The direct comparison below uses the full **20 carton type** catalogue from the same benchmark. It shows the end-to-end latency tradeoff between the two public solver modes on identical synthetic orders.
+
+![Fast vs Best solver latency](benchmark_results/solver_scaling/solver_scaling_fast_vs_best.svg)
+
 The scaling benchmark makes that cost visible. With a 5 second Best search budget, Best proved optimality through the 30-item cases in this synthetic grid. From 50 items onward, every Best run reached the search limit. At the largest tested case — **100 items × 20 carton types** — median end-to-end solver time was about **75 seconds**, showing that the surrounding candidate search can itself become expensive even when the exact-search budget is bounded.
 
 ![Best solver latency as problem size increases](benchmark_results/solver_scaling/solver_scaling_best.png)

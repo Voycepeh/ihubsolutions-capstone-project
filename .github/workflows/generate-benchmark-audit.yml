@@ -6,6 +6,9 @@ on:
       - feature/full-benchmark-audit
     paths:
       - .github/workflows/generate-benchmark-audit.yml
+  pull_request:
+    branches:
+      - cleanup/solver-demo-canonical-rules
   workflow_dispatch:
 
 permissions:

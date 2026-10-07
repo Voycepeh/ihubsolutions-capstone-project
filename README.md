@@ -48,6 +48,9 @@ The benchmark varies **5–100 items per order** and **3–20 available carton t
 
 ## Inputs
 
+<details>
+<summary><strong>Show input formats and packing configuration</strong></summary>
+
 ### Order
 
 The order contains identifiers and the items to pack.
@@ -122,6 +125,8 @@ The defaults reproduce the current project packing policy.
 | `visualize` | `False` | Display the validated 3D packing |
 
 With the defaults, six or fewer physical items may use up to 100% of usable carton volume. More than six are capped at 70%. Carton weight, usable dimensions, item rotation, collision, and fill constraints are enforced by the solver and final validator.
+
+</details>
 
 ## Output
 

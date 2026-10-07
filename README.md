@@ -261,6 +261,21 @@ For implementation details, use the dedicated Fast and Best guides below rather 
 
 Best does more work because it starts with the Fast packing and then searches alternative carton combinations with an exact 3D feasibility model. As the order contains more items and the catalogue contains more carton types, there are more carton combinations, assignments, orientations, positions, and non-overlap relationships to evaluate.
 
+### Escape hatch: bounded Best search
+
+The public API lets callers bound how long Best is allowed to search using `max_runtime_ms`. Best always starts with a validated Fast packing, so the optimization search has a safe fallback. If the Best search reaches its configured time limit before finding or proving a better solution, the solver returns the validated Fast result rather than failing the order.
+
+```python
+result = solve_order(
+    order=order,
+    boxes=boxes,
+    mode="best",
+    max_runtime_ms=5_000,  # 5 second Best search budget
+)
+```
+
+This makes Best a deliberate tradeoff: callers can give the optimizer more time when carton reduction matters, or keep the search tightly bounded when response time matters.
+
 The scaling benchmark makes that cost visible. With a 5 second Best search budget, Best proved optimality through the 30-item cases in this synthetic grid. From 50 items onward, every Best run reached the search limit. At the largest tested case — **100 items × 20 carton types** — median end-to-end solver time was about **75 seconds**, showing that the surrounding candidate search can itself become expensive even when the exact-search budget is bounded.
 
 ![Best solver latency as problem size increases](benchmark_results/solver_scaling/solver_scaling_best.png)

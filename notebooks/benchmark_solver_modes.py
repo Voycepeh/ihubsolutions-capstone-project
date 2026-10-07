@@ -131,6 +131,46 @@ def benchmark(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return combine_benchmarks(records, fast_rows, best_rows)
 
 
+def classify_best_vs_ihub(row: dict[str, Any]) -> tuple[str, str]:
+    """Return comparison and the first lexicographic criterion that decides it."""
+    if row["ihub_box9_over_fill_cap"]:
+        return "excluded_policy", "iHub Box9 above supplied fill cap"
+
+    best = PackingObjective(
+        row["best_cartons"],
+        row["best_largest_carton_volume_mm3"],
+        row["best_external_volume_mm3"],
+    )
+    ihub = PackingObjective(
+        row["ihub_cartons"],
+        row["ihub_largest_carton_volume_mm3"],
+        row["ihub_external_volume_mm3"],
+    )
+    if best == ihub:
+        return "equal", "Equal on all 3 criteria"
+    if best > ihub:
+        return "worse", "iHub wins on lexicographic objective"
+    if row["best_cartons"] < row["ihub_cartons"]:
+        return "better", "1. Fewer cartons"
+    if row["best_largest_carton_volume_mm3"] < row["ihub_largest_carton_volume_mm3"]:
+        return "better", "2. Smaller largest carton"
+    return "better", "3. Lower total carton volume"
+
+
+def audit_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Add stable audit columns used by the demo CSV and 67-win inspection view."""
+    audited: list[dict[str, Any]] = []
+    for row in rows:
+        comparison, reason = classify_best_vs_ihub(row)
+        audited.append({
+            **row,
+            "best_vs_ihub": comparison,
+            "best_win": comparison == "better",
+            "best_win_reason": reason,
+        })
+    return audited
+
+
 def print_summary(rows: list[dict[str, Any]]) -> None:
     print(f"Orders benchmarked: {len(rows):,}")
     for mode in ("fast", "best"):
@@ -210,7 +250,7 @@ def main() -> None:
     records = json.loads(args.dataset.read_text(encoding="utf-8"))
     if args.limit is not None:
         records = records[:args.limit]
-    rows = benchmark(records)
+    rows = audit_rows(benchmark(records))
     print_summary(rows)
     if args.csv:
         args.csv.parent.mkdir(parents=True, exist_ok=True)

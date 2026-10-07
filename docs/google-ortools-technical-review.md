@@ -9,7 +9,7 @@ For the overall solver flow, inputs, configuration, and Fast versus Best behavio
 The exact-assisted implementation is:
 
 ```text
-src/bin_packing_3d/strategies/exact_fit.py
+src/bin_packing_3d/strategies/best.py
 ```
 
 OR-Tools is a local Python dependency:

@@ -71,6 +71,7 @@ def benchmark_mode(
             f"{mode}_runtime_ms": result.runtime_ms,
             f"{mode}_optimality_proven": result.optimality_proven,
             f"{mode}_search_status": result.search_status,
+            f"{mode}_valid": result.validation.valid,
             f"{mode}_effective_fill_cap_pct": result.effective_fill_cap_pct,
         })
     return rows

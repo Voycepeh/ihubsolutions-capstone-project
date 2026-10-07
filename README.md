@@ -54,6 +54,43 @@ By default:
 - dimensions and XYZ coordinates use millimetres
 - weights use kilograms
 
+
+## Solver scaling stress benchmark
+
+To find where packing compute becomes impractical, run the synthetic Fast vs Best
+stress grid:
+
+```bash
+python notebooks/benchmark_solver_scaling.py
+```
+
+The default benchmark varies **5, 10, 15, 20, 30, 50, 75, and 100 items per
+order** against **3, 5, 10, 15, and 20 available carton types**. Each case is
+repeated with deterministic seeds, and both modes receive the same generated
+order and carton catalogue.
+
+Results are written under `benchmark_results/solver_scaling/`:
+
+- `raw_results.csv` contains every individual run, including runtime, cartons
+  used, search status, and whether optimality was proven.
+- `summary.csv` contains median/max latency plus Best timeout and proof rates.
+- Fast and Best scaling plots use a logarithmic latency axis so the compute
+  cliff remains readable.
+- Fast and Best heatmaps show the interaction between item count and number of
+  carton choices directly.
+
+The generated catalogues deliberately keep the same largest carton while adding
+intermediate carton sizes. This isolates the cost of having more carton choices
+instead of making larger catalogues artificially easier because they contain a
+larger maximum carton.
+
+The default per-run search budget is 5 seconds. Increase it only when exploring
+the point beyond the first timeout cliff, for example:
+
+```bash
+python notebooks/benchmark_solver_scaling.py --items 30,50,75,100 --boxes 10,15,20 --repeats 3 --max-runtime-ms 30000
+```
+
 ## How the solver actually works
 
 The package separates orchestration, packing strategy, and validation.

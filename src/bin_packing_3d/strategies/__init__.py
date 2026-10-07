@@ -1,7 +1,7 @@
 """Built-in production packing strategies."""
 from ..solvers import register_solver
-from .best_fit import FastFitSolver
-from .exact_fit import BestFitSolver
+from .fast import FastFitSolver
+from .best import BestFitSolver
 
 
 def register_builtin_solvers() -> None:

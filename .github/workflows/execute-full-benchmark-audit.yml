@@ -1,0 +1,26 @@
+name: Execute full benchmark audit
+on:
+  push:
+    branches: [feature/full-benchmark-audit]
+permissions:
+  contents: write
+jobs:
+  execute:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/full-benchmark-audit
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python notebooks/benchmark_solver_modes.py data/raw/data_samples_v2.json --csv notebooks/artifacts/benchmark_2000_best_vs_ihub.csv
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add notebooks/artifacts/benchmark_2000_best_vs_ihub.csv
+          git diff --cached --quiet || git commit -m "Generate 2,000-order benchmark audit"
+          git push

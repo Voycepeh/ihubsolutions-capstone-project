@@ -1,21 +1,18 @@
-name: Generate benchmark audit
+name: Execute benchmark audit notebook
 
 on:
   push:
     branches:
       - feature/full-benchmark-audit
-  pull_request:
-    branches:
-      - cleanup/solver-demo-canonical-rules
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  benchmark:
+  execute:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,16 +20,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt
-      - name: Run all 2,000 orders
-        run: |
-          python notebooks/benchmark_solver_modes.py \
-            data/raw/data_samples_v2.json \
-            --csv notebooks/artifacts/benchmark_2000_best_vs_ihub.csv
-      - name: Preserve benchmark CSV
+      - run: pip install -r requirements.txt nbconvert ipykernel
+      - name: Execute audit viewer
+        run: jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=300 "notebooks/Best vs iHub Audit.ipynb"
+      - name: Preserve rendered notebook
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add notebooks/artifacts/benchmark_2000_best_vs_ihub.csv
-          git diff --cached --quiet || git commit -m "Generate 2,000-order benchmark audit"
+          git add "notebooks/Best vs iHub Audit.ipynb"
+          git diff --cached --quiet || git commit -m "Execute Best vs iHub audit notebook"
           git push

@@ -1,0 +1,591 @@
+# Google OR-Tools Integration Technical Review
+
+**Project:** iHub Solutions Capstone, 3D Bin Packing Solver  
+**Review scope:** Current Best mode and Google OR-Tools Constraint Programming Satisfiability (CP-SAT) integration  
+**Date:** 2026-10-08
+
+## 1. Executive summary
+
+The optimization component used by this project is **Google OR-Tools CP-SAT**.
+
+OR-Tools is not called as a hosted Google API. It is installed as a Python dependency and executes inside the same application process. The project does not send the raw order, carton catalogue, or packing result to a Google service.
+
+The dependency is pinned in `requirements.txt`:
+
+```text
+ortools==9.10.4067
+```
+
+The primary integration is:
+
+```text
+src/bin_packing_3d/strategies/exact_fit.py
+```
+
+The public application entry point remains:
+
+```python
+from bin_packing_3d import solve_order
+
+result = solve_order(
+    order=order,
+    boxes=boxes,
+    mode="best",
+)
+```
+
+The architecture deliberately hides OR-Tools behind the project's own solver contract. `solve_order()` owns input normalization, shared business rules, strategy selection, runtime handling, independent validation, metrics, and the public result. Best mode owns the exact-search formulation.
+
+The core architectural principle is:
+
+> The solver proposes a packing plan. The engine independently validates it before returning success.
+
+This keeps OR-Tools as an optimization engine rather than the source of truth for application validity.
+
+## 2. Where OR-Tools is called
+
+The CP-SAT model is implemented in:
+
+```text
+src/bin_packing_3d/strategies/exact_fit.py
+```
+
+OR-Tools is imported as:
+
+```python
+from ortools.sat.python import cp_model
+```
+
+The key exact-search method is conceptually:
+
+```python
+BestFitSolver._solve_choice(
+    items,
+    choice,
+    config,
+    deadline,
+)
+```
+
+This method receives normalized application objects, creates a `cp_model.CpModel()`, defines the decision variables and constraints, configures the solver, runs `Solve()`, and translates a feasible assignment back into the project's `PackingPlan`.
+
+Related code locations:
+
+| Layer | File | Responsibility |
+| --- | --- | --- |
+| Public API | `src/bin_packing_3d/__init__.py` | Exposes `solve_order()` |
+| Orchestration | `src/bin_packing_3d/engine.py` | Normalization, strategy execution, validation, result |
+| Business rules | `src/bin_packing_3d/rules.py` | Rotation, buffer, fill policy, feasibility |
+| Fast strategy | `src/bin_packing_3d/strategies/best_fit.py` | Deterministic greedy baseline and fallback |
+| Best strategy | `src/bin_packing_3d/strategies/exact_fit.py` | Carton enumeration and CP-SAT feasibility |
+| Validator | `src/bin_packing_3d/validate.py` | Independent post-solver validation |
+| Tests | `tests/test_builtin_strategies.py` | Fast and Best strategy behavior |
+
+## 3. What the application receives
+
+The caller interacts with `solve_order()`, not with OR-Tools.
+
+The public configuration includes:
+
+```python
+solve_order(
+    order,
+    boxes,
+    *,
+    mode="fast",
+    high_item_count_threshold=6,
+    high_item_count_max_fill_pct=70,
+    max_fill_pct=100,
+    bin_buffer={"length": 0, "width": 0, "height": 6},
+    max_runtime_ms=900,
+    deterministic=True,
+    ...
+)
+```
+
+For exact-assisted search, the caller selects:
+
+```python
+mode="best"
+```
+
+### Order data
+
+The packing-relevant item information is:
+
+| Field | Meaning |
+| --- | --- |
+| `Code` | Item identifier |
+| `Length` | Length in millimetres |
+| `Width` | Width in millimetres |
+| `Height` | Height in millimetres |
+| `Weight` | Unit weight in kilograms |
+| `Quantity` | Number of physical copies |
+| `VerticalRotation` | Controls allowed orientations |
+| `UOM` | Optional metadata |
+
+Quantity is expanded before solving. A source row with quantity 2 becomes two physical items internally.
+
+### Carton catalogue
+
+The carton catalogue is supplied by the caller and is not hard-coded. Each carton supplies:
+
+* carton code
+* length
+* width
+* height
+* maximum weight
+
+### Packing policy
+
+The main configurable rules include the item-count threshold, fill limits, carton buffer, runtime budget, and deterministic execution setting.
+
+The current default fill policy is:
+
+```text
+physical item count <= 6  -> up to 100% usable volume
+physical item count > 6   -> up to 70% usable volume
+```
+
+The threshold is based on expanded physical quantity, not source-row count.
+
+## 4. What is actually passed to OR-Tools
+
+The raw request is **not** passed directly to OR-Tools.
+
+The engine first normalizes the request into project domain objects:
+
+```text
+PhysicalItem[]
+Box[]
+PackingConfig
+```
+
+Best mode selects one candidate carton combination and converts that candidate into a CP-SAT mathematical model.
+
+The model represents the following information.
+
+### Item dimensions and allowed orientations
+
+Each physical item contributes its dimensions and rotation policy.
+
+Allowed orientations are generated by the project's shared business-rule layer. When vertical rotation is allowed, the item can use the six unique axis-aligned dimension permutations. When vertical rotation is disabled, the original height remains on the Z axis while length and width may swap.
+
+The CP-SAT model receives the allowed orientation tuples through an allowed-assignment constraint.
+
+### Candidate carton instances
+
+Best mode does not ask CP-SAT to choose freely from the entire carton catalogue.
+
+Python first enumerates a specific candidate carton combination. CP-SAT then answers whether all items can be packed into that fixed combination.
+
+This separates:
+
+```text
+carton objective and search order -> our Python code
+3D feasibility of one choice      -> CP-SAT
+```
+
+### Assignment variables
+
+For each physical item and candidate carton, the model creates Boolean assignment variables.
+
+Every item must be assigned to exactly one carton.
+
+### XYZ position variables
+
+For every item, the model creates integer variables representing its position:
+
+```text
+x
+y
+z
+```
+
+These are the lower-corner coordinates of the placed item.
+
+### Packed dimensions
+
+The model also represents the item's dimensions after its selected allowed rotation:
+
+```text
+dx
+dy
+dz
+```
+
+### Carton boundary constraints
+
+When an item is assigned to a carton, its coordinates and packed dimensions must remain inside that carton's usable dimensions.
+
+Usable dimensions already incorporate the configured carton buffer.
+
+### Weight constraints
+
+For every candidate carton:
+
+```text
+sum(weight of assigned items) <= carton maximum weight
+```
+
+### Fill constraints
+
+For every candidate carton, assigned item volume must remain within the active fill limit based on usable carton volume.
+
+The active fill percentage comes from the shared application configuration.
+
+### Pairwise non-overlap constraints
+
+For each pair of items and candidate carton, the model creates six possible spatial separation relationships:
+
+```text
+A left of B
+B left of A
+A in front of B
+B in front of A
+A below B
+B below A
+```
+
+If both items are assigned to the same carton, at least one of these relationships must hold.
+
+This is the core 3D collision-prevention formulation.
+
+### Runtime budget
+
+The CP-SAT solver receives only the remaining Best-mode runtime budget after Python-side work has already consumed time.
+
+### Deterministic setting
+
+Current behavior is:
+
+```text
+deterministic=True  -> 1 CP-SAT worker, fixed seed
+deterministic=False -> 8 workers
+```
+
+Deterministic mode is the preferred benchmark and regression baseline.
+
+## 5. What is not passed to OR-Tools
+
+OR-Tools does not receive the original benchmark JSON as an opaque payload.
+
+It does not receive or own:
+
+* historical iHub output
+* historical iHub latency
+* benchmark-only `UsedSpace` values
+* the public API contract
+* the Fast heuristic implementation
+* the final independent validation decision
+* response serialization
+* visualization
+* logging policy
+
+There is also no HTTP request from `exact_fit.py` to a Google optimization service.
+
+The actual execution boundary is:
+
+```text
+our Python application
+        |
+        v
+installed OR-Tools Python library
+        |
+        v
+CP-SAT model solved in the application environment
+        |
+        v
+variable assignments returned in memory
+```
+
+## 6. Best-mode execution sequence
+
+Best mode uses Fast as both a baseline and a safety mechanism.
+
+The sequence is:
+
+1. Normalize and validate the order, cartons, and configuration.
+2. Expand quantity into physical items.
+3. Perform individual item feasibility checks.
+4. Run Fast mode to obtain a valid incumbent packing.
+5. Use the Fast carton count as an upper bound.
+6. Enumerate candidate carton combinations in objective order.
+7. Apply cheap aggregate pruning before constructing CP-SAT models.
+8. For each surviving candidate, build a fixed-combination CP-SAT model.
+9. Ask CP-SAT whether the combination is feasible.
+10. If infeasible, continue to the next candidate.
+11. If feasible after all better candidates have been proven infeasible, return the improved packing with optimality proof metadata.
+12. If the time budget expires first, return the valid Fast incumbent.
+13. Independently validate the final plan before returning it through the public API.
+
+The cheap aggregate checks include total usable volume, total weight capacity, and whether each item can fit at least one carton in the candidate combination.
+
+These checks avoid constructing an exact model for obviously impossible candidates.
+
+## 7. Objective design
+
+The project uses a lexicographic carton objective:
+
+1. fewer cartons
+2. smaller largest carton external volume
+3. smaller total external carton volume
+4. deterministic carton-code tie breaking
+
+The important implementation detail is that this objective is primarily handled by the Python candidate enumeration order.
+
+CP-SAT is used as a feasibility solver for each fixed carton combination.
+
+This is intentional.
+
+### Advantages
+
+* easier to explain and review
+* Fast provides a natural carton-count upper bound
+* proof semantics are understandable
+* each CP-SAT model is smaller than a fully integrated carton-selection model
+* the public architecture remains modular
+
+### Tradeoff
+
+Multiple CP-SAT models may need to be created and solved. As the carton catalogue or required carton count grows, the number of candidate combinations can become expensive.
+
+For the current capstone, this is a reasonable architecture. It should only be replaced by a larger integrated optimization model if profiling shows carton-combination enumeration is the dominant bottleneck.
+
+## 8. Result translation and validation
+
+A feasible CP-SAT solution is not returned directly to the caller.
+
+The selected variable values are translated into the project's domain types, including:
+
+```text
+PackingPlan
+PackedBox
+Placement
+Orientation
+Position
+```
+
+The engine then runs the independent validator.
+
+Validation checks include:
+
+* every physical item is accounted for exactly once
+* carton references are valid
+* orientation is allowed
+* coordinates are non-negative
+* items remain within usable carton boundaries
+* items do not overlap
+* carton weight limits are respected
+* fill limits are respected
+
+This separation is important.
+
+The optimization formulation and the validity check are separate implementations. A future solver strategy can therefore be added without changing the final application-level validation contract.
+
+## 9. Timeout and fallback semantics
+
+Best mode is bounded optimization.
+
+It is not designed to run exact search indefinitely.
+
+The Fast solution is obtained first and retained as a valid fallback.
+
+If the exact search completes sufficiently to prove that all better carton combinations are infeasible, Best can report:
+
+```text
+optimality_proven = True
+search_status = "optimal"
+carton_search = "exact_cp_sat"
+```
+
+If the deadline is reached before proof is complete, Best returns the Fast incumbent and reports a time-limited search.
+
+This means a timeout does not mean the order fails to pack. It means exact improvement or proof was not completed within the configured budget.
+
+## 10. Code review strengths
+
+### Clean solver boundary
+
+OR-Tools is isolated inside the Best strategy rather than leaking into the public API.
+
+### Safe fallback
+
+Best begins with a valid Fast plan. Exact search is an enhancement rather than a single point of failure for normal bounded execution.
+
+### Cheap pruning before exact solving
+
+Aggregate feasibility checks reduce unnecessary CP-SAT model construction.
+
+### Explicit rotation rules
+
+Allowed orientation is generated from shared application rules and encoded explicitly into the exact model.
+
+### True geometric non-overlap
+
+The model reasons about XYZ position and directional separation rather than relying only on aggregate volume.
+
+### Shared business policy
+
+Buffer, fill, rotation, and feasibility policy are owned by common application logic rather than invented independently inside OR-Tools.
+
+### Independent post-solver validation
+
+The engine validates the returned plan separately, providing defense in depth.
+
+### Deterministic mode
+
+Single-worker execution with a fixed seed improves repeatability for benchmarks and regression tests.
+
+## 11. Technical findings and risks
+
+### 11.1 Collision relationships grow approximately quadratically
+
+For `n` items, the number of item pairs is:
+
+```text
+n * (n - 1) / 2
+```
+
+For each item pair and candidate carton, the current formulation can create six directional Boolean variables.
+
+The collision portion therefore grows approximately with:
+
+```text
+O(number of items^2 * number of candidate cartons)
+```
+
+Best-mode latency and memory can rise sharply for large or difficult orders.
+
+The current mitigations are the bounded runtime and Fast fallback.
+
+### 11.2 Runtime budget is cooperative, not a hard process timeout
+
+The code maintains an overall Best-mode deadline and gives CP-SAT only the remaining solve time.
+
+However, CP-SAT's own time limit begins when `Solve()` starts. It cannot interrupt Python model construction that has already begun.
+
+Therefore `max_runtime_ms` should be understood as a cooperative search budget rather than a strict process-level wall-clock timeout.
+
+### 11.3 Integer scaling needs explicit supported bounds
+
+CP-SAT uses integer arithmetic. The implementation scales dimensions and weights to preserve useful decimal precision.
+
+This is appropriate for the supplied iHub data, but a future general external API should explicitly validate supported maximum dimensions, weights, and precision so scaled values remain safely within solver integer limits.
+
+### 11.4 Deterministic and multi-worker execution differ materially
+
+One worker is easier to reproduce. Eight workers may improve search speed but can change timing and search behavior.
+
+Automated benchmark comparisons should therefore continue using deterministic mode unless the benchmark explicitly targets production multi-worker behavior.
+
+### 11.5 Carton selection is outside CP-SAT
+
+This is an intentional architectural tradeoff, not a defect.
+
+The current design favors modularity and explainability over one large integrated optimization model.
+
+### 11.6 OR-Tools import compatibility workaround deserves dedicated coverage
+
+The cached CP-SAT loader contains compatibility handling for environments where optional pandas binaries may fail to import.
+
+Because this code is unusual, it should have a focused regression test or explanatory environment note so a future maintainer does not remove it as apparently unnecessary code.
+
+### 11.7 Keep the public result independent of OR-Tools
+
+The current translation boundary is good. CP-SAT variables, solver objects, and raw solver statuses should not become part of the public result contract.
+
+This keeps the optimization library replaceable.
+
+## 12. Security and data-boundary assessment
+
+Based on the current implementation, OR-Tools is a local third-party Python dependency.
+
+There is no HTTP call to a Google-hosted optimization service in the Best strategy.
+
+The model is created in memory and solved by the installed OR-Tools library.
+
+Therefore, in this architecture, selecting `mode="best"` does not mean order data is uploaded to Google.
+
+Normal software supply-chain controls still apply to the third-party `ortools` package and its transitive dependencies.
+
+## 13. Existing tests relevant to Best mode
+
+The built-in strategy tests cover important behavior including:
+
+* Fast and Best produce valid 3D plans
+* public `mode="best"` resolves to the exact-assisted strategy
+* Best never returns a worse carton objective than Fast
+* fewer cartons are prioritized
+* exact search repairs a known greedy geometry trap
+* timeout returns a valid fallback and reports the time limit
+* geometry screening catches an item that cannot physically fit despite misleading aggregate volume
+
+Additional production-readiness tests worth adding are:
+
+* maximum supported numeric scale and bounds
+* larger-order stress tests
+* deterministic repeatability across repeated runs
+* multi-worker behavior when `deterministic=False`
+* separate model-build-time telemetry
+* explicit OR-Tools import and environment regression coverage
+* timeout behavior on deliberately difficult models
+* property-based validation of returned placements
+
+## 14. Technical review conclusion
+
+The current architecture uses Google OR-Tools in a controlled and appropriately isolated way.
+
+OR-Tools is **not the product API**.
+
+The product API is:
+
+```python
+solve_order(...)
+```
+
+Our application receives the order, carton catalogue, and packing policy. It normalizes them into domain objects, runs the Fast heuristic, and, in Best mode, formulates selected carton combinations as CP-SAT constraint models.
+
+The information represented in the exact model is:
+
+```text
+physical items
++ allowed rotations
++ candidate carton instances
++ usable carton dimensions
++ item-to-carton assignments
++ XYZ coordinates
++ rotated item dimensions
++ weight constraints
++ fill constraints
++ pairwise non-overlap constraints
++ remaining solve-time budget
+```
+
+OR-Tools solves that mathematical model locally.
+
+The returned assignments are translated back into the project's standard packing model. A separate validator then independently checks geometry and business constraints.
+
+For the current capstone scope, this is a defensible design. Fast protects latency. CP-SAT provides bounded exact improvement and proof capability. The public application remains decoupled from the optimization library.
+
+The main technical risk is exact-search scaling as order complexity grows. Pairwise non-overlap constraints and carton-combination enumeration can become expensive. The runtime budget and Fast fallback are therefore central architectural safeguards, not optional extras.
+
+## 15. Reviewer quick reference
+
+**What is the Google tool called?**  
+Google OR-Tools, using the Constraint Programming Satisfiability (CP-SAT) solver.
+
+**Where is it implemented?**  
+`src/bin_packing_3d/strategies/exact_fit.py`.
+
+**What do we send to Google?**  
+Nothing is sent to a Google optimization service. OR-Tools runs locally as a Python dependency.
+
+**What do we pass into OR-Tools?**  
+A CP-SAT model created by our code containing integer and Boolean variables and constraints for item assignment, allowed orientation, XYZ position, carton boundaries, weight, fill percentage, non-overlap, and the remaining solve-time budget.
+
+**What remains our responsibility?**  
+The public API, input contract, business rules, carton objective, candidate enumeration, Fast fallback, CP-SAT formulation, result translation, independent validation, metrics, and returned result.
+
+**Why use it?**  
+Fast gives a low-latency valid solution. Best uses CP-SAT within a bounded time budget to determine whether a better carton combination is geometrically feasible and, when the search completes, prove the carton objective under our search ordering.

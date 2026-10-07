@@ -381,5 +381,6 @@ src/bin_packing_3d/
 | [Solver approach and literature](docs/solver-approach-and-literature.md) | Background research and design rationale |
 | [Dataset specification](docs/dataset-specification.md) | Supplied development data and fields |
 | [Solver Demo](notebooks/Solver%20Demo.ipynb) | Worked examples, Fast/Best/iHub comparisons, visualization, and the 2,000-order benchmark |
+| [Solver Guardrail Simulation](notebooks/Simulated%20Rule%20Proof.ipynb) | Executable Config + Items + Boxes scenarios showing the real solver skipping cartons, choosing fallbacks, or rejecting orders when guardrails apply |
 
 Historical iHub carton choices are used as reference results for evaluation. They are not passed into `solve_order()` and do not determine the solver recommendation.

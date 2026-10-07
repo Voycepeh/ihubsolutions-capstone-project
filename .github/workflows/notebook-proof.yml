@@ -1,0 +1,33 @@
+name: Execute simulated rule proof
+
+on:
+  push:
+    branches: [demo/simulated-rule-proof]
+    paths:
+      - notebooks/Simulated Rule Proof.ipynb
+      - src/bin_packing_3d/**
+      - .github/workflows/notebook-proof.yml
+
+permissions:
+  contents: write
+
+jobs:
+  execute:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: demo/simulated-rule-proof
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt nbconvert ipykernel
+      - run: jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=120 "notebooks/Simulated Rule Proof.ipynb"
+      - name: Commit executed output
+        run: |
+          if git diff --quiet -- "notebooks/Simulated Rule Proof.ipynb"; then exit 0; fi
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add "notebooks/Simulated Rule Proof.ipynb"
+          git commit -m "Execute simulated rule proof notebook"
+          git push

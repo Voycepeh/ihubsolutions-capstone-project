@@ -9,7 +9,7 @@ from functools import lru_cache
 
 from ..models import Box, Orientation, PackedBox, PackingConfig, PackingPlan, PhysicalItem, Placement, Position
 from ..rules import allowed_orientations, effective_max_fill_pct, item_fits_box, usable_dimensions
-from .best_fit import FastFitSolver
+from .fast import FastFitSolver
 
 
 @lru_cache(maxsize=1)
@@ -51,10 +51,14 @@ class BestFitSolver:
         _cp_model_module()
         started = perf_counter()
         deadline = started + config.max_runtime_ms / 1000.0
+        # Fast is the incumbent and fallback. Exact search only replaces it when
+        # CP-SAT finds a better carton objective within the shared deadline.
         incumbent = FastFitSolver().solve(items, boxes, config)
         incumbent.metadata.update({"optimality_proven": False, "search_status": "time_limit"})
         max_count = len(incumbent.packed_boxes)
 
+        # Carton selection stays outside CP-SAT. Enumerate combinations from
+        # fewest cartons upward; CP-SAT only proves whether one fixed choice can pack.
         for carton_count in range(1, max_count + 1):
             choices = sorted(
                 combinations_with_replacement(boxes, carton_count),
@@ -110,6 +114,8 @@ class BestFitSolver:
             tuple(round(value * scale) for value in (dim.length, dim.width, dim.height))
             for dim in dims
         ]
+        # Convert the fixed carton choice into integer/Boolean CP-SAT variables.
+        # Dimensions use integer scaling because CP-SAT does not model floats.
         model = cp_model.CpModel()
         max_l = max(dim[0] for dim in scaled_dims)
         max_w = max(dim[1] for dim in scaled_dims)
@@ -124,6 +130,7 @@ class BestFitSolver:
             dx = model.NewIntVar(1, max_l, f"dx{index}")
             dy = model.NewIntVar(1, max_w, f"dy{index}")
             dz = model.NewIntVar(1, max_h, f"dz{index}")
+            # dx/dy/dz must be one orientation allowed by our rotation policy.
             model.AddAllowedAssignments(
                 [dx, dy, dz],
                 [
@@ -135,6 +142,7 @@ class BestFitSolver:
                     for orientation in allowed_orientations(item)
                 ],
             )
+            # One Boolean per candidate carton; every physical item goes to exactly one.
             assigned = [model.NewBoolVar(f"a{index}_{box_index}") for box_index in range(len(choice))]
             model.AddExactlyOne(assigned)
             for box_index, (length, width, height) in enumerate(scaled_dims):
@@ -154,6 +162,8 @@ class BestFitSolver:
             model.Add(sum(volumes[i] * assignments[i][box_index] for i in range(len(items))) * 100
                       <= round(length * width * height * fill_pct))
 
+        # If two items share a carton, at least one of six axis separation
+        # directions must hold. This is the actual 3D non-overlap constraint.
         for left in range(len(items)):
             for right in range(left + 1, len(items)):
                 for box_index in range(len(choice)):
@@ -169,6 +179,7 @@ class BestFitSolver:
                     model.Add(zs[left] + dzs[left] <= zs[right]).OnlyEnforceIf(directions[4])
                     model.Add(zs[right] + dzs[right] <= zs[left]).OnlyEnforceIf(directions[5])
 
+        # Only the time remaining from the overall Best-mode budget is given to CP-SAT.
         solver = cp_model.CpSolver()
         remaining_seconds = deadline - perf_counter()
         if remaining_seconds <= 0:
@@ -180,6 +191,8 @@ class BestFitSolver:
         if status not in (cp_model.OPTIMAL, cp_model.FEASIBLE):
             return None, "INFEASIBLE" if status == cp_model.INFEASIBLE else "UNKNOWN"
 
+        # Translate solver values back to project domain objects. The engine
+        # independently validates this PackingPlan before exposing it to callers.
         packed = [PackedBox(box.code, f"carton-{i + 1}", dims[i]) for i, box in enumerate(choice)]
         for index, item in enumerate(items):
             box_index = next(i for i, assigned in enumerate(assignments[index]) if solver.Value(assigned))

@@ -1,4 +1,4 @@
-"""Deterministic Best Fit 3D packing strategy."""
+"""Fast mode: deterministic bounded 3D packing heuristic."""
 from __future__ import annotations
 
 from itertools import combinations_with_replacement
@@ -27,6 +27,8 @@ class FastFitSolver:
 
     def solve(self, items: list[PhysicalItem], boxes: list[Box], config: PackingConfig) -> PackingPlan:
         """Return the best candidate found by the bounded heuristic search."""
+        # Build the normal greedy plan first, then make one bounded attempt to
+        # reduce carton count without turning Fast into an exact search.
         baseline = self._build_candidate(items, boxes, config)
         candidates = [
             baseline,
@@ -69,6 +71,8 @@ class FastFitSolver:
         """Build the greedy tighter-placement candidate."""
         item_by_id = {item.instance_id: item for item in items}
         # Large-first ordering reduces fragmentation while remaining deterministic.
+        # Large items are placed first because they have fewer viable spaces and
+        # are more likely to cause fragmentation if deferred.
         ordered = sorted(items, key=lambda i: (-i.volume, -max(
             i.source_item.length, i.source_item.width, i.source_item.height
         ), i.instance_id))
@@ -102,6 +106,7 @@ class FastFitSolver:
                         box_index,
                     )
                     existing.append((score, packed_box, candidate))
+            # Prefer an already-open carton whenever any valid placement exists.
             if existing:
                 _, packed_box, candidate = min(existing, key=lambda entry: entry[0])
                 packed_box.placements.append(candidate)
@@ -117,6 +122,8 @@ class FastFitSolver:
                 continue
 
             # If a new carton is required, score every feasible catalogue option.
+            # No open carton works, so evaluate every carton type and choose the
+            # smallest feasible external carton with a valid 3D placement.
             new_options = []
             for box in boxes:
                 instance_id = f"carton-{len(opened) + 1}"
@@ -185,6 +192,8 @@ class FastFitSolver:
         ))
         item_by_id = {item.instance_id: item for item in items}
 
+        # Bounded improvement pass: pre-open fewer cartons than the baseline and
+        # greedily try to place every item. This remains heuristic, not a proof.
         for carton_count in range(1, baseline_count):
             combinations = sorted(
                 combinations_with_replacement(boxes, carton_count),

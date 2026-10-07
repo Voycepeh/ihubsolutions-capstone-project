@@ -352,8 +352,8 @@ The 2,000 orders were used during development, so these results are not an indep
 | `placement.py` | Feasible XYZ placement generation and collision/boundary checks used by Fast |
 | `validate.py` | Independent validation of every proposed packing plan |
 | `solvers.py` | Common strategy registration and lookup |
-| `strategies/best_fit.py` | Production **Fast** greedy heuristic and bounded fixed-carton search |
-| `strategies/exact_fit.py` | Production **Best** bounded CP-SAT exact search with Fast fallback |
+| `strategies/fast.py` | Production **Fast** greedy heuristic and bounded fixed-carton search |
+| `strategies/best.py` | Production **Best** bounded CP-SAT exact search with Fast fallback |
 | `display.py` | Notebook-friendly result tables |
 | `visualize.py` | Optional 3D visualization |
 
@@ -369,8 +369,8 @@ src/bin_packing_3d/
 ├── display.py
 ├── visualize.py
 └── strategies/
-    ├── best_fit.py
-    └── exact_fit.py
+    ├── fast.py
+    └── best.py
 ```
 
 ## Further documentation

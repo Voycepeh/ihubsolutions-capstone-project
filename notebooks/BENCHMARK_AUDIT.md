@@ -11,3 +11,5 @@ The review flow is:
 5. Select any winning Order ID and show why Best wins, the original item constraints, the validated XYZ packing plan, and the 3D visualization.
 
 The comparison remains lexicographic: fewer cartons, then smaller largest carton, then lower total carton volume.
+
+The generated CSV is committed so the audit notebook remains a read-only analysis layer.

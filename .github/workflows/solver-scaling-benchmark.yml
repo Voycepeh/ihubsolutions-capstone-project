@@ -1,0 +1,40 @@
+name: Solver scaling benchmark
+
+on:
+  push:
+    branches:
+      - benchmark/solver-scaling-grid
+    paths:
+      - notebooks/benchmark_solver_scaling.py
+      - .github/workflows/solver-scaling-benchmark.yml
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out benchmark branch
+        uses: actions/checkout@v4
+        with:
+          ref: benchmark/solver-scaling-grid
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install solver dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Run Fast vs Best scaling benchmark
+        run: python notebooks/benchmark_solver_scaling.py --repeats 3 --max-runtime-ms 5000
+
+      - name: Commit benchmark outputs
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add benchmark_results/solver_scaling
+          git commit -m "Add solver scaling benchmark results" || exit 0
+          git push origin HEAD:benchmark/solver-scaling-grid

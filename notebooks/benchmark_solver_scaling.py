@@ -1,11 +1,14 @@
 """Stress benchmark Fast vs Best across item counts and carton catalogue sizes.
 
-This benchmark generates deterministic synthetic orders so the two solver modes
-see exactly the same packing problem. It is intended to reveal the point where
+This benchmark generates deterministic, nested synthetic orders. For a given seed,
+all smaller item-count scenarios are exact prefixes of the largest order, and
+Fast and Best see exactly the same packing problem. It is intended to reveal the point where
 solver latency becomes impractical as item count, carton choice, or both grow.
 
 Example:
-    python notebooks/benchmark_solver_scaling.py --repeats 3 --max-runtime-ms 5000
+    python notebooks/benchmark_solver_scaling.py --repeats 3
+    # Optional explicit cap for exploratory runs:
+    python notebooks/benchmark_solver_scaling.py --max-runtime-ms 5000
 """
 from __future__ import annotations
 
@@ -59,9 +62,13 @@ def generate_order(item_count: int, seed: int) -> dict[str, Any]:
     for index in range(item_count):
         # Keep every item individually feasible while retaining enough size
         # variation to make placement decisions non-trivial.
-        length = rng.randint(25, 105)
-        width = rng.randint(20, 90)
-        height = rng.randint(15, 75)
+        # A single deterministic stream creates nested orders across item counts.
+        # Cycle through size classes to diversify geometry without changing earlier items.
+        size_classes = ((25, 45), (45, 75), (75, 105))
+        low, high = size_classes[index % len(size_classes)]
+        length = rng.randint(low, high)
+        width = rng.randint(max(20, low - 5), min(90, high))
+        height = rng.randint(max(15, low - 10), min(75, high))
         items.append(
             {
                 "Code": f"Item{index + 1:03d}",
@@ -84,7 +91,7 @@ def run_grid(
     item_counts: tuple[int, ...],
     box_counts: tuple[int, ...],
     repeats: int,
-    max_runtime_ms: float,
+    max_runtime_ms: float | None,
     seed: int,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
@@ -188,7 +195,7 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
             label=mode.title(),
         )
     axis.set_xlabel("Items in one order")
-    axis.set_ylabel("Median end-to-end latency (seconds)")
+    axis.set_ylabel("Median solver execution latency (seconds)")
     axis.set_title(
         f"Fast vs Best solver latency ({comparison_box_count} available box types)"
     )
@@ -263,8 +270,8 @@ def main() -> None:
     parser.add_argument(
         "--max-runtime-ms",
         type=float,
-        default=5000,
-        help="Per-solver search budget. Best may return its Fast fallback when this is reached.",
+        default=None,
+        help="Optional search budget in milliseconds; omitted means no time limit (exact search can be extremely slow).",
     )
     parser.add_argument(
         "--output-dir",
@@ -275,7 +282,7 @@ def main() -> None:
 
     if args.repeats <= 0:
         parser.error("--repeats must be positive")
-    if args.max_runtime_ms <= 0:
+    if args.max_runtime_ms is not None and args.max_runtime_ms <= 0:
         parser.error("--max-runtime-ms must be positive")
 
     rows = run_grid(args.items, args.boxes, args.repeats, args.max_runtime_ms, args.seed)

@@ -50,7 +50,7 @@ class BestFitSolver:
         # cached call for direct strategy users.
         _cp_model_module()
         started = perf_counter()
-        deadline = started + config.max_runtime_ms / 1000.0
+        deadline = None if config.max_runtime_ms is None else started + config.max_runtime_ms / 1000.0
         # Fast is the incumbent and fallback. Exact search only replaces it when
         # CP-SAT finds a better carton objective within the shared deadline.
         incumbent = FastFitSolver().solve(items, boxes, config)
@@ -69,8 +69,8 @@ class BestFitSolver:
                 ),
             )
             for choice in choices:
-                remaining_ms = (deadline - perf_counter()) * 1000.0
-                if remaining_ms <= 0:
+                remaining_ms = None if deadline is None else (deadline - perf_counter()) * 1000.0
+                if remaining_ms is not None and remaining_ms <= 0:
                     return incumbent
                 if not self._passes_aggregate_checks(items, choice, config):
                     continue
@@ -104,7 +104,7 @@ class BestFitSolver:
         items: list[PhysicalItem],
         choice: tuple[Box, ...],
         config: PackingConfig,
-        deadline: float,
+        deadline: float | None,
     ) -> tuple[PackingPlan | None, str]:
         cp_model = _cp_model_module()
         scale = 1000
@@ -181,10 +181,11 @@ class BestFitSolver:
 
         # Only the time remaining from the overall Best-mode budget is given to CP-SAT.
         solver = cp_model.CpSolver()
-        remaining_seconds = deadline - perf_counter()
-        if remaining_seconds <= 0:
-            return None, "UNKNOWN"
-        solver.parameters.max_time_in_seconds = max(0.001, remaining_seconds)
+        remaining_seconds = None if deadline is None else deadline - perf_counter()
+        if remaining_seconds is not None:
+            if remaining_seconds <= 0:
+                return None, "UNKNOWN"
+            solver.parameters.max_time_in_seconds = max(0.001, remaining_seconds)
         solver.parameters.num_search_workers = 1 if config.deterministic else 8
         solver.parameters.random_seed = 0
         status = solver.Solve(model)

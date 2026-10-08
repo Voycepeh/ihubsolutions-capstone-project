@@ -140,7 +140,6 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
     for value, name in (
         (config.max_fill_pct, "max_fill_pct"),
         (config.high_item_count_max_fill_pct, "high_item_count_max_fill_pct"),
-        (config.max_runtime_ms, "max_runtime_ms"),
     ):
         if isinstance(value, bool) or not isinstance(value, Real) or not isfinite(value):
             raise InvalidConfigError(f"{name} must be a finite number")
@@ -150,8 +149,9 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
     ):
         if not 0 < value <= 100:
             raise InvalidConfigError(f"{name} must be greater than 0 and at most 100")
-    if config.max_runtime_ms <= 0:
-        raise InvalidConfigError("max_runtime_ms must be positive")
+    if config.max_runtime_ms is not None:
+        if isinstance(config.max_runtime_ms, bool) or not isinstance(config.max_runtime_ms, Real) or not isfinite(config.max_runtime_ms) or config.max_runtime_ms <= 0:
+            raise InvalidConfigError("max_runtime_ms must be a finite positive number or None")
     for value, name in zip((config.bin_buffer.length, config.bin_buffer.width, config.bin_buffer.height), ("length", "width", "height")):
         if (isinstance(value, bool) or not isinstance(value, Real)
                 or not isfinite(value) or value < 0):
@@ -169,7 +169,7 @@ def normalize_config(raw: Mapping[str, Any] | PackingConfig | None) -> PackingCo
         bin_buffer=Orientation(*map(float, (
             config.bin_buffer.length, config.bin_buffer.width, config.bin_buffer.height,
         ))),
-        max_runtime_ms=float(config.max_runtime_ms),
+        max_runtime_ms=None if config.max_runtime_ms is None else float(config.max_runtime_ms),
         deterministic=config.deterministic,
         trace_enabled=config.trace_enabled,
     )

@@ -168,6 +168,36 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Direct Fast vs Best comparison using the full generated carton catalogue.
+    comparison_box_count = max(row["box_types"] for row in summary)
+    figure, axis = plt.subplots(figsize=(10, 6))
+    for mode in ("fast", "best"):
+        selected = sorted(
+            (
+                row
+                for row in summary
+                if row["mode"] == mode and row["box_types"] == comparison_box_count
+            ),
+            key=lambda row: row["items"],
+        )
+        axis.plot(
+            [row["items"] for row in selected],
+            [row["median_runtime_ms"] / 1000 for row in selected],
+            marker="o",
+            linewidth=2,
+            label=mode.title(),
+        )
+    axis.set_xlabel("Items in one order")
+    axis.set_ylabel("Median end-to-end latency (seconds)")
+    axis.set_title(
+        f"Fast vs Best solver latency ({comparison_box_count} available box types)"
+    )
+    axis.grid(True, alpha=0.25)
+    axis.legend()
+    figure.tight_layout()
+    figure.savefig(output_dir / "solver_scaling_fast_vs_best.png", dpi=160)
+    plt.close(figure)
+
     # Curves: one line per catalogue size, Fast and Best in separate figures.
     for mode in ("fast", "best"):
         figure, axis = plt.subplots(figsize=(10, 6))

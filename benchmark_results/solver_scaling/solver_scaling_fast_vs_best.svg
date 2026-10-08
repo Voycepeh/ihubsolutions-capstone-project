@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="520" viewBox="0 0 900 520">
+<rect width="100%" height="100%" fill="white"/>
+<style>text{font-family:Arial,sans-serif;fill:#222}.axis{stroke:#333;stroke-width:1}.grid{stroke:#ddd;stroke-width:1}.fast{fill:none;stroke:#1f77b4;stroke-width:3}.best{fill:none;stroke:#ff7f0e;stroke-width:3}.dotf{fill:#1f77b4}.dotb{fill:#ff7f0e}</style>
+<text x="450" y="28" text-anchor="middle" font-size="22" font-weight="700">Fast vs Best solver latency</text>
+<text x="450" y="48" text-anchor="middle" font-size="13">20 available box types, median end-to-end latency</text>
+<line class="grid" x1="80" y1="450" x2="870" y2="450"/><text x="68" y="455" text-anchor="end" font-size="12">0</text>
+<line class="grid" x1="80" y1="351.2" x2="870" y2="351.2"/><text x="68" y="356.2" text-anchor="end" font-size="12">20</text>
+<line class="grid" x1="80" y1="252.5" x2="870" y2="252.5"/><text x="68" y="257.5" text-anchor="end" font-size="12">40</text>
+<line class="grid" x1="80" y1="153.8" x2="870" y2="153.8"/><text x="68" y="158.8" text-anchor="end" font-size="12">60</text>
+<line class="grid" x1="80" y1="55" x2="870" y2="55"/><text x="68" y="60" text-anchor="end" font-size="12">80</text>
+<text x="80" y="474" text-anchor="middle" font-size="12">0</text><text x="238" y="474" text-anchor="middle" font-size="12">20</text><text x="396" y="474" text-anchor="middle" font-size="12">40</text><text x="554" y="474" text-anchor="middle" font-size="12">60</text><text x="712" y="474" text-anchor="middle" font-size="12">80</text><text x="870" y="474" text-anchor="middle" font-size="12">100</text>
+<line class="axis" x1="80" y1="55" x2="80" y2="450"/><line class="axis" x1="80" y1="450" x2="870" y2="450"/>
+<text x="450" y="502" text-anchor="middle" font-size="14">Items in one order</text><text x="20" y="252.5" transform="rotate(-90 20 252.5)" text-anchor="middle" font-size="14">Median latency (seconds)</text>
+<polyline class="fast" points="119.5,450 159,449.7 198.5,449.4 238,449.1 317,448.5 475,387.4 672.5,425.4 870,84.6"/>
+<polyline class="best" points="119.5,449.9 159,449.4 198.5,448.8 238,448.1 317,446.3 475,386.9 672.5,420.7 870,77.9"/>
+<g class="dotf"><circle cx="119.5" cy="450" r="4"/><circle cx="159" cy="449.7" r="4"/><circle cx="198.5" cy="449.4" r="4"/><circle cx="238" cy="449.1" r="4"/><circle cx="317" cy="448.5" r="4"/><circle cx="475" cy="387.4" r="4"/><circle cx="672.5" cy="425.4" r="4"/><circle cx="870" cy="84.6" r="4"/></g>
+<g class="dotb"><circle cx="119.5" cy="449.9" r="4"/><circle cx="159" cy="449.4" r="4"/><circle cx="198.5" cy="448.8" r="4"/><circle cx="238" cy="448.1" r="4"/><circle cx="317" cy="446.3" r="4"/><circle cx="475" cy="386.9" r="4"/><circle cx="672.5" cy="420.7" r="4"/><circle cx="870" cy="77.9" r="4"/></g>
+<line class="fast" x1="680" y1="78" x2="715" y2="78"/><text x="725" y="83" font-size="13">Fast</text><line class="best" x1="680" y1="100" x2="715" y2="100"/><text x="725" y="105" font-size="13">Best</text>
+<text x="665" y="168" font-size="12" font-weight="700">100 items</text><text x="665" y="186" font-size="12">Fast 74.0s</text><text x="665" y="202" font-size="12">Best 75.4s</text>
+</svg>

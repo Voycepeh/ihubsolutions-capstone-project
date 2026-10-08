@@ -4,7 +4,9 @@ NUS Industry 4.0 Master's capstone project for practical 3D carton recommendatio
 
 The package takes an order and carton catalogue, applies configurable packing rules, and returns a validated carton recommendation with item orientations and XYZ placements.
 
-## Public API
+<details>
+<summary><h2>Public API</h2></summary>
+
 
 ```python
 from bin_packing_3d import solve_order
@@ -35,18 +37,12 @@ The normal solver choice is:
 
 Best starts from the Fast result, then uses its remaining runtime budget to search for a better packing. If the search budget is exhausted, the validated Fast result remains the fallback.
 
-### Why Best is computationally heavy
 
-Best does more work because it starts with the Fast packing and then searches alternative carton combinations with an exact 3D feasibility model. As the order contains more items and the catalogue contains more carton types, there are more carton combinations, assignments, orientations, positions, and non-overlap relationships to evaluate.
+</details>
 
-The scaling benchmark makes that cost visible. With a 5 second Best search budget, Best proved optimality through the 30-item cases in this synthetic grid. From 50 items onward, every Best run reached the search limit. At the largest tested case — **100 items × 20 carton types** — median end-to-end solver time was about **75 seconds**, showing that the surrounding candidate search can itself become expensive even when the exact-search budget is bounded.
+<details>
+<summary><h2>Inputs</h2></summary>
 
-![Best solver scaling heatmap](benchmark_results/solver_scaling/solver_scaling_best_heatmap.png)
-
-The benchmark varies **5–100 items per order** and **3–20 available carton types**, with three deterministic repeats per combination. The full [summary](benchmark_results/solver_scaling/summary.csv), [raw results](benchmark_results/solver_scaling/raw_results.csv), and [reusable benchmark script](notebooks/benchmark_solver_scaling.py) are retained in the repository.
-
-
-## Inputs
 
 ### Order
 
@@ -123,7 +119,12 @@ The defaults reproduce the current project packing policy.
 
 With the defaults, six or fewer physical items may use up to 100% of usable carton volume. More than six are capped at 70%. Carton weight, usable dimensions, item rotation, collision, and fill constraints are enforced by the solver and final validator.
 
-## Output
+
+</details>
+
+<details>
+<summary><h2>Output</h2></summary>
+
 
 `solve_order()` returns a `PackingResult`.
 
@@ -160,7 +161,12 @@ For a JSON compatible representation:
 payload = result.to_dict()
 ```
 
-## Optional decision logs
+
+</details>
+
+<details>
+<summary><h2>Optional decision logs</h2></summary>
+
 
 Enable logs when you want to inspect why cartons or placements were selected or rejected.
 
@@ -172,9 +178,6 @@ result = solve_order(
     logs=True,
 )
 ```
-
-<details>
-<summary><strong>Show example decision log</strong></summary>
 
 ```text
 === 3D packing log ===
@@ -198,11 +201,14 @@ Final decision
 Selected carton(s): Box4
 ```
 
-</details>
-
 Logging does not change the packing result.
 
-## Optional 3D visualization
+
+</details>
+
+<details>
+<summary><h2>Optional 3D visualization</h2></summary>
+
 
 Set `visualize=True` to display the validated item cuboids inside the selected carton.
 
@@ -215,17 +221,16 @@ result = solve_order(
 )
 ```
 
-<details>
-<summary><strong>Show example visualization</strong></summary>
-
 ![Validated Box4 packing for sample order 80](docs/images/order80_box4_visualization.png)
-
-</details>
 
 The visualization is for inspection and explanation. The XYZ coordinates establish a valid geometric packing and are not intended as exact instructions for a ground packer to reproduce.
 
+
+</details>
+
 <details>
-<summary><strong>High level architecture</strong></summary>
+<summary><h2>High level architecture</h2></summary>
+
 
 ```mermaid
 flowchart LR
@@ -247,9 +252,49 @@ The public API owns normalization and orchestration. Fast and Best propose packi
 
 For implementation details, use the dedicated Fast and Best guides below rather than the README.
 
+
 </details>
 
-## Documentation
+<details>
+<summary><h2>Why Best is computationally heavy</h2></summary>
+
+
+Best does more work because it starts with the Fast packing and then searches alternative carton combinations with an exact 3D feasibility model. As the order contains more items and the catalogue contains more carton types, there are more carton combinations, assignments, orientations, positions, and non-overlap relationships to evaluate.
+
+### Escape hatch: bounded Best search
+
+The public API lets callers bound how long Best is allowed to search using `max_runtime_ms`. Best always starts with a validated Fast packing, so the optimization search has a safe fallback. If the Best search reaches its configured time limit before finding or proving a better solution, the solver returns the validated Fast result rather than failing the order.
+
+```python
+result = solve_order(
+    order=order,
+    boxes=boxes,
+    mode="best",
+    max_runtime_ms=5_000,  # 5 second Best search budget
+)
+```
+
+This makes Best a deliberate tradeoff: callers can give the optimizer more time when carton reduction matters, or keep the search tightly bounded when response time matters.
+
+### Fast vs Best latency
+
+The direct comparison below uses the full **20 carton type** catalogue from the same benchmark. It shows the end-to-end latency tradeoff between the two public solver modes on identical synthetic orders.
+
+![Fast vs Best solver latency](benchmark_results/solver_scaling/solver_scaling_fast_vs_best.svg)
+
+The scaling benchmark makes that cost visible. With a 5 second Best search budget, Best proved optimality through the 30-item cases in this synthetic grid. From 50 items onward, every Best run reached the search limit. At the largest tested case — **100 items × 20 carton types** — median end-to-end solver time was about **75 seconds**, showing that the surrounding candidate search can itself become expensive even when the exact-search budget is bounded.
+
+![Best solver latency as problem size increases](benchmark_results/solver_scaling/solver_scaling_best.png)
+
+The benchmark varies **5–100 items per order** and **3–20 available carton types**, with three deterministic repeats per combination. The full [summary](benchmark_results/solver_scaling/summary.csv), [raw results](benchmark_results/solver_scaling/raw_results.csv), and [reusable benchmark script](notebooks/benchmark_solver_scaling.py) are retained in the repository.
+
+
+
+</details>
+
+<details>
+<summary><h2>Documentation</h2></summary>
+
 
 | Document | Purpose |
 | --- | --- |
@@ -262,3 +307,6 @@ For implementation details, use the dedicated Fast and Best guides below rather 
 | [Solver Guardrail Simulation](notebooks/Simulated%20Rule%20Proof.ipynb) | Executable Config + Items + Boxes scenarios showing the real solver skipping cartons, choosing fallbacks, or rejecting orders when guardrails apply |
 
 Historical iHub carton choices are used only as reference results for evaluation. They are not passed into `solve_order()` and do not determine the solver recommendation.
+
+
+</details>

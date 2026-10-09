@@ -1,13 +1,16 @@
 """Fast mode: deterministic greedy 3D packing heuristic."""
 from __future__ import annotations
 
+from itertools import combinations_with_replacement
+from time import perf_counter
+
 from ..models import Box, PackedBox, PackingConfig, PackingPlan, PhysicalItem
 from ..placement import (
     feasible_placements,
     placement_envelope_volume,
     placement_rejection_reason,
 )
-from ..rules import usable_dimensions
+from ..rules import effective_max_fill_pct, item_fits_box, usable_dimensions
 
 
 class FastFitSolver:
@@ -16,16 +19,88 @@ class FastFitSolver:
     name = "fast_fit"
 
     def solve(self, items: list[PhysicalItem], boxes: list[Box], config: PackingConfig) -> PackingPlan:
-        """Return a single greedy packing candidate."""
-        # Fast is deliberately a single greedy pass. Carton-count search belongs
-        # to Best; avoid combinatorial re-packing in the latency-first mode.
+        """Greedy baseline plus a few promising fewer-carton attempts."""
         baseline = self._build_candidate(items, boxes, config)
         baseline.metadata.update({
             "selected_plan": "fast_heuristic_baseline",
             "optimality_proven": False,
             "search_status": "heuristic",
         })
-        return baseline
+        count = len(items)
+        attempts = 5 if count <= 6 else 3 if count <= 20 else 2 if count <= 50 else 1
+        if len(baseline.packed_boxes) <= 1 or baseline.unpacked_item_ids:
+            return baseline
+        # Improvement budget begins after the baseline; this is not a hard
+        # wall-clock limit because placement generation is not interruptible.
+        deadline = perf_counter() + 0.1
+        total_volume = sum(item.volume for item in items)
+        total_weight = sum(item.weight for item in items)
+        fill = effective_max_fill_pct(count, config) / 100.0
+        item_by_id = {item.instance_id: item for item in items}
+        ordered = sorted(items, key=lambda i: (
+            -i.volume,
+            -max(i.source_item.length, i.source_item.width, i.source_item.height),
+            i.instance_id,
+        ))
+        box_volume = {box.code: box.external_volume for box in boxes}
+        best = baseline
+        tried = 0
+        for carton_count in range(1, len(baseline.packed_boxes)):
+            if tried >= attempts or perf_counter() >= deadline:
+                break
+            # Prefer smaller overall carton volume. Avoid materializing all
+            # combinations, which was a major source of scaling overhead.
+            for choice in combinations_with_replacement(boxes, carton_count):
+                if tried >= attempts or perf_counter() >= deadline:
+                    break
+                dims = [usable_dimensions(box, config) for box in choice]
+                if sum(dim.volume * fill for dim in dims) < total_volume:
+                    continue
+                if sum(box.max_weight for box in choice) < total_weight:
+                    continue
+                if not all(any(item_fits_box(item, box, config) for box in choice) for item in items):
+                    continue
+                tried += 1
+                opened = [
+                    (PackedBox(box.code, f"carton-{index + 1}", dim), box)
+                    for index, (box, dim) in enumerate(zip(choice, dims))
+                ]
+                complete = True
+                for item in ordered:
+                    if perf_counter() >= deadline:
+                        complete = False
+                        break
+                    options = []
+                    for box_index, (packed_box, box) in enumerate(opened):
+                        for placement in feasible_placements(item, packed_box, box, item_by_id, config):
+                            options.append((
+                                placement_envelope_volume(packed_box, placement),
+                                box_index,
+                                placement.position.z,
+                                placement.position.y,
+                                placement.position.x,
+                                packed_box,
+                                placement,
+                            ))
+                    if not options:
+                        complete = False
+                        break
+                    *_, selected_box, placement = min(options)
+                    selected_box.placements.append(placement)
+                if complete:
+                    candidate = PackingPlan([packed for packed, _ in opened if packed.placements])
+                    def score(plan: PackingPlan) -> tuple[int, float, float]:
+                        volumes = [box_volume[packed.box_code] for packed in plan.packed_boxes]
+                        return (len(volumes), max(volumes, default=0), sum(volumes))
+                    if score(candidate) < score(best):
+                        best = candidate
+                        best.metadata.update({
+                            "selected_plan": "bounded_carton_improvement",
+                            "optimality_proven": False,
+                            "search_status": "heuristic",
+                        })
+        best.metadata["improvement_attempts"] = tried
+        return best
 
     def _build_candidate(
         self,

@@ -346,6 +346,19 @@ This chart is generated from the **same 2,000-order v2 benchmark CSV** used by t
 
 **What the results show.** Across **2,000 orders**, **183 iHub references are flagged for exceeding the Box9 fill cap**, leaving **1,817** for the policy-screened comparison. Under the ranked objective (fewest cartons, then smallest largest carton, then lowest total external volume), **Fast: 18 better / 1,584 equal / 215 worse**; **Best: 67 better / 1,748 equal / 2 worse**.
 
+**Why recommendations win or lose.** The first rule that differs determines the outcome. Counts below are mutually exclusive and use the same **1,817 policy-screened orders** as the chart.
+
+| First differing rule | Fast better | Fast worse | Best better | Best worse |
+| --- | ---: | ---: | ---: | ---: |
+| 1. Fewer / more cartons | 1 | 41 | 2 | 2 |
+| 2. Smaller / larger largest carton | 17 | 170 | 63 | 0 |
+| 3. Lower / higher total external carton volume | 0 | 4 | 2 | 0 |
+| **Total** | **18** | **215** | **67** | **2** |
+
+For Fast, **5.4%** of its 333 non-equal outcomes are improvements in largest carton size (17), while **51.1%** are losses on largest carton size (170). For Best, **94.0%** of its 67 improvements are due to a smaller largest carton (63); its **2 losses** are both due to using more cartons. These percentages describe the non-equal outcomes for each solver, not all 1,817 orders.
+
+**How often do we match iHub's carton count?** Fast uses the **same number of cartons on 1,775 / 1,817 orders (97.7%)** and the same or fewer on **1,776 / 1,817 (97.7%)**. Best uses the **same number on 1,813 / 1,817 (99.8%)** and the same or fewer on **1,815 / 1,817 (99.9%)**. Exact **carton-type combinations** match iHub on **1,584 / 1,817 (87.2%)** for Fast and **1,736 / 1,817 (95.5%)** for Best. Matching carton count does **not** necessarily mean choosing the same carton types or proving that iHub's historical arrangement was physically feasible.
+
 **Primary objective — carton count only:** Against those 1,817 references, **Best uses fewer cartons on 2 orders, the same count on 1,813, and more on 2**. The two carton-count losses are orders **382** (iHub 3, Best 4) and **1778** (iHub 3, Best 5). These require investigation before claiming Best always matches or beats iHub. The previous benchmark on `main` had **zero Best losses** under the same policy-screened, ranked objective (67 better / 1,750 equal / 0 worse), so the refreshed result represents a possible regression, not just a scoring-definition change.
 
 **Conclusion:** Best performs much better than Fast on the ranked carton objective, but its two newly observed losses need diagnosis. The reference iHub output lacks independently verified 3D placements, so a lower recorded carton count does not by itself prove a feasible arrangement under our constraints. This is a development benchmark, not independent holdout validation.

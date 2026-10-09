@@ -338,7 +338,7 @@ The charts below show execution time across synthetic orders with different item
 
 ![Fast and Best runtime breakdown](benchmark_results/solver_scaling_current/solver_scaling_best_breakdown.svg)
 
-**Conclusion:** Fast matched Best's median carton counts in these synthetic scenarios while running substantially faster. With 100 items and 20 carton types, Fast took **138.7 ms** versus **13,519.5 ms** for Best, and both used a median of **3 cartons**. However, this benchmark measures carton count and execution time, **not the size of the cartons selected**. The objective prioritises fewer cartons, then lower total external carton volume for all orders. We need carton-volume measurements to establish whether Fast achieves the same carton count by using oversized boxes. These synthetic results do not guarantee performance or optimality on other orders.
+**Conclusion (refreshed uncapped 240-run simulation):** At 100 items and 20 carton types, Fast's median runtime was **278.3 ms** and Best's was **23,616.0 ms**. These are synthetic, uncapped runs, not measurements of the 5-second production Best budget. The objective is fewest cartons, then lowest total external carton volume. The charts and figures are generated from the saved benchmark results, not estimated from the previous solver version.
 
 ### Fast vs Best vs iHub: carton recommendation quality
 

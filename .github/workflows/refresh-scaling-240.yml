@@ -1,0 +1,41 @@
+name: Refresh uncapped 240-run scaling benchmark
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  scaling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix-carton-total-volume-objective
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install benchmark dependencies
+        run: python -m pip install -r requirements.txt matplotlib numpy
+      - name: Run the original uncapped 240-scenario grid
+        run: |
+          python -u notebooks/benchmark_solver_scaling.py --items 5,10,15,20,30,50,75,100 --boxes 5,10,20,30,40 --repeats 3 --seed 20261008 --output-dir benchmark_results/solver_scaling_current
+      - name: Verify and update README from new CSV
+        run: |
+          python notebooks/update_scaling_readme.py
+      - name: Upload benchmark evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: uncapped-scaling-240
+          path: benchmark_results/solver_scaling_current/
+      - name: Commit measured CSV, README and charts
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md benchmark_results/solver_scaling_current/
+          git commit -m "Refresh uncapped 240-run solver scaling evidence" || exit 0
+          git fetch origin fix-carton-total-volume-objective
+          git rebase origin/fix-carton-total-volume-objective
+          git push origin HEAD:fix-carton-total-volume-objective

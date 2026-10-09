@@ -1,0 +1,81 @@
+name: Refresh Solver Demo Benchmark
+
+on:
+  push:
+    branches:
+      - refresh-solver-demo-fast-20261009
+    paths:
+      - '.github/workflows/refresh-solver-demo.yml'
+      - 'notebooks/benchmark_solver_modes.py'
+      - 'notebooks/plot_solver_demo_comparison.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: solver-demo-benchmark-publish
+      cancel-in-progress: false
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install solver dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Rerun all 2000 orders using current Fast and Best
+        run: |
+          python notebooks/benchmark_solver_modes.py data/raw/data_samples_v2.json --csv notebooks/artifacts/benchmark_2000_best_vs_ihub.csv
+      - name: Verify benchmark output
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+          path = Path("notebooks/artifacts/benchmark_2000_best_vs_ihub.csv")
+          with path.open(newline="", encoding="utf-8") as f:
+              rows = list(csv.DictReader(f))
+          assert len(rows) == 2000, len(rows)
+          assert all(int(float(r["best_cartons"])) <= int(float(r["fast_cartons"])) for r in rows)
+          print("Verified", len(rows), "orders; Best never uses more cartons than Fast")
+          PY
+      - name: Render README comparison chart
+        run: python -m pip install numpy matplotlib && python notebooks/plot_solver_demo_comparison.py notebooks/artifacts/benchmark_2000_best_vs_ihub.csv benchmark_results/solver_demo/fast_best_ihub_comparison.svg
+      - name: Execute notebook and preserve its outputs
+        run: |
+          python -m pip install nbconvert nbclient ipykernel pandas
+          python - <<'PY'
+          from pathlib import Path
+          import nbformat
+          from nbclient import NotebookClient
+          path = Path("notebooks/Solver Demo.ipynb")
+          notebook = nbformat.read(path, as_version=4)
+          client = NotebookClient(notebook, timeout=1200, kernel_name="python3", resources={"metadata": {"path": str(Path.cwd() / "notebooks")}})
+          client.execute()
+          nbformat.write(notebook, path)
+          print("Saved executed outputs to", path)
+          PY
+      - name: Upload benchmark artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: refreshed-solver-demo-benchmark
+          path: |
+            notebooks/artifacts/benchmark_2000_best_vs_ihub.csv
+            benchmark_results/solver_demo/fast_best_ihub_comparison.svg
+            notebooks/Solver Demo.ipynb
+      - name: Commit refreshed benchmark to PR branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add notebooks/artifacts/benchmark_2000_best_vs_ihub.csv benchmark_results/solver_demo/fast_best_ihub_comparison.svg 'notebooks/Solver Demo.ipynb'
+          if ! git diff --cached --quiet; then
+            git commit -m "Regenerate 2000-order Fast vs Best benchmark"
+            git fetch origin "${{ github.ref_name }}"
+            git rebase -X theirs "origin/${{ github.ref_name }}"
+            git push origin "HEAD:${{ github.ref_name }}"
+          fi

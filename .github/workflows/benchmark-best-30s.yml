@@ -1,10 +1,10 @@
-name: Benchmark Best 30 Seconds (2000 Orders)
+name: Benchmark Best 5 Seconds (2000 Orders)
 
 on:
   push:
-    branches: [benchmark-best-30s-2000-20261009]
+    branches: [benchmark-best-5s-2000-20261009]
     paths:
-      - '.github/workflows/benchmark-best-30s.yml'
+      - '.github/workflows/benchmark-best-5s.yml'
   workflow_dispatch:
 
 permissions:
@@ -13,7 +13,7 @@ permissions:
 jobs:
   batch:
     runs-on: ubuntu-latest
-    timeout-minutes: 100
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -24,14 +24,14 @@ jobs:
         with:
           python-version: '3.11'
       - run: python -m pip install -r requirements.txt
-      - name: Benchmark 100 orders with 30-second Best limit
+      - name: Benchmark 100 orders with 5-second Best limit
         run: |
-          mkdir -p benchmark_results/solver_demo_30s
-          python -u notebooks/benchmark_solver_modes.py data/raw/data_samples_v2.json --start $(( ${{ matrix.batch }} * 100 )) --limit 100 --best-timeout-ms 30000 --csv benchmark_results/solver_demo_30s/batch_${{ matrix.batch }}.csv
+          mkdir -p benchmark_results/solver_demo_5s
+          python -u notebooks/benchmark_solver_modes.py data/raw/data_samples_v2.json --start $(( ${{ matrix.batch }} * 100 )) --limit 100 --best-timeout-ms 5000 --csv benchmark_results/solver_demo_5s/batch_${{ matrix.batch }}.csv
       - uses: actions/upload-artifact@v4
         with:
-          name: best-30s-batch-${{ matrix.batch }}
-          path: benchmark_results/solver_demo_30s/batch_${{ matrix.batch }}.csv
+          name: best-5s-batch-${{ matrix.batch }}
+          path: benchmark_results/solver_demo_5s/batch_${{ matrix.batch }}.csv
 
   combine:
     needs: batch
@@ -44,15 +44,15 @@ jobs:
           python-version: '3.11'
       - uses: actions/download-artifact@v4
         with:
-          pattern: best-30s-batch-*
-          path: benchmark_results/solver_demo_30s/parts
+          pattern: best-5s-batch-*
+          path: benchmark_results/solver_demo_5s/parts
           merge-multiple: true
       - name: Combine and verify 2000 rows
         run: |
           python - <<'PY'
           import csv
           from pathlib import Path
-          folder=Path("benchmark_results/solver_demo_30s")
+          folder=Path("benchmark_results/solver_demo_5s")
           parts=folder/"parts"
           rows=[]
           for i in range(20):
@@ -61,7 +61,7 @@ jobs:
           assert len(rows)==2000, len(rows)
           assert len({r["order_id"] for r in rows})==2000
           assert all(int(r["best_cartons"])<=int(r["fast_cartons"]) for r in rows)
-          with (folder/"benchmark_2000_best_30s_vs_ihub.csv").open("w",newline="") as f:
+          with (folder/"benchmark_2000_best_5s_vs_ihub.csv").open("w",newline="") as f:
               writer=csv.DictWriter(f,fieldnames=list(rows[0]))
               writer.writeheader()
               writer.writerows(rows)
@@ -75,20 +75,20 @@ jobs:
               r=next(r for r in rows if r["order_id"]==oid)
               print("ORDER",oid,"iHub",r["ihub_cartons"],"Fast",r["fast_cartons"],"Best",r["best_cartons"],"status",r["best_search_status"],"optimality",r["best_optimality_proven"],"runtime_ms",r["best_runtime_ms"])
           PY
-      - name: Render separate 30-second comparison chart
+      - name: Render separate 5-second comparison chart
         run: |
           python -m pip install numpy matplotlib
-          python notebooks/plot_solver_demo_comparison.py benchmark_results/solver_demo_30s/benchmark_2000_best_30s_vs_ihub.csv benchmark_results/solver_demo_30s/fast_best_30s_ihub_comparison.svg
+          python notebooks/plot_solver_demo_comparison.py benchmark_results/solver_demo_5s/benchmark_2000_best_5s_vs_ihub.csv benchmark_results/solver_demo_5s/fast_best_5s_ihub_comparison.svg
       - uses: actions/upload-artifact@v4
         with:
-          name: best-30s-full-benchmark
-          path: benchmark_results/solver_demo_30s/*csv
-      - name: Commit 30-second results and chart
+          name: best-5s-full-benchmark
+          path: benchmark_results/solver_demo_5s/*csv
+      - name: Commit 5-second results and chart
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add benchmark_results/solver_demo_30s/benchmark_2000_best_30s_vs_ihub.csv benchmark_results/solver_demo_30s/fast_best_30s_ihub_comparison.svg
-          git commit -m "Save 2000-order Best 30-second benchmark results"
+          git add benchmark_results/solver_demo_5s/benchmark_2000_best_5s_vs_ihub.csv benchmark_results/solver_demo_5s/fast_best_5s_ihub_comparison.svg
+          git commit -m "Save 2000-order Best 5-second benchmark results"
           git fetch origin "${{ github.ref_name }}"
           git rebase -X theirs "origin/${{ github.ref_name }}"
           git push origin "HEAD:${{ github.ref_name }}"

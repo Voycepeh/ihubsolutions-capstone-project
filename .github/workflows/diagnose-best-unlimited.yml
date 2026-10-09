@@ -1,0 +1,39 @@
+name: Diagnose Best Unlimited Two Orders
+on:
+  push:
+    branches: [diagnose-best-unlimited-382-1778]
+    paths: [.github/workflows/diagnose-best-unlimited.yml]
+  workflow_dispatch:
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - name: Test Best with no solver time limit
+        run: |
+          mkdir -p benchmark_results/best_unlimited
+          python -u - <<'PY' | tee benchmark_results/best_unlimited/two_orders.log
+          import json,sys,time
+          from pathlib import Path
+          sys.path.insert(0,str(Path.cwd()/"src"))
+          from bin_packing_3d import solve_order
+          from notebooks.benchmark_solver_modes import _inputs
+          records=json.loads(Path("data/raw/data_samples_v2.json").read_text())
+          for order_id in (382,1778):
+              record=next(r for r in records if int(r["input"]["OrderId"])==order_id)
+              order,boxes,config=_inputs(record)
+              print("ORDER",order_id,"iHub cartons",len(record["output"]["Data"]["BinsPacked"]),flush=True)
+              start=time.perf_counter()
+              result=solve_order(order,boxes,mode="best",max_runtime_ms=None,high_item_count_threshold=config["high_item_count_threshold"],high_item_count_max_fill_pct=config["high_item_count_max_fill_pct"],max_fill_pct=config["max_fill_pct"],bin_buffer=config["bin_buffer"])
+              print("RESULT",order_id,"cartons",result.metrics.box_count,"boxes",[b.box_code for b in result.packed_boxes],"optimality_proven",result.optimality_proven,"status",result.search_status,"elapsed_seconds",round(time.perf_counter()-start,3),flush=True)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: best-unlimited-two-orders
+          path: benchmark_results/best_unlimited/

@@ -56,7 +56,7 @@ The normal solver choice is:
 
 **Timeout and fallback:** Best's configurable timeout is an **additional optimization budget after Fast finishes**, not a limit on the Fast baseline. Keep the best independently validated result found so far. If Best finds no improvement before its timeout, return the Fast baseline. Best must never return more cartons than Fast for the same order and constraints.
 
-**Implementation note:** This table defines the intended solver behavior; existing code, examples and historical benchmarks may still reflect the earlier Fast implementation. The API currently exposes `max_runtime_ms`; align its runtime semantics with the additional Best search budget when implementing this change.
+**Benchmark note:** Current synthetic scaling results are presented below. The saved 2,000-order iHub comparison is historical and has not been rerun for the new Fast strategy.
 
 
 </details>
@@ -320,37 +320,38 @@ result = solve_order(
 
 This makes Best a deliberate tradeoff: callers can give the optimizer more time when carton reduction matters, or keep the search tightly bounded when response time matters.
 
-### Solver execution time: Fast vs Best
+### Solver execution time: Fast vs Best (9 October 2026)
 
-**Historical data, not current Fast performance.** The benchmark compares **8 order sizes × 5 box catalogue sizes × 2 solving modes × 3 repeats** (240 executions). Each larger synthetic order retains the items from the smaller order for the same seed. These runs use uncapped search (`max_runtime_ms=None`), so they are **not production API latency guarantees**. All three charts below use the committed [benchmark summary](benchmark_results/solver_scaling/summary.csv); each cell is the median of three runs.
+**Current benchmark, after the Fast greedy improvement change.** [Successful GitHub Actions run #37908700572](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37908700572) executed all **240 runs**: 8 item counts × 5 carton catalogue sizes × 2 modes × 3 repetitions. Search was uncapped (`max_runtime_ms=None`). These are deterministic synthetic stress scenarios, not production latency guarantees or the separate historical 2,000-order iHub comparison.
 
-#### 1. Fast execution time
+#### Fast execution time
 
-![Fast solver execution-time heatmap](benchmark_results/solver_scaling/solver_scaling_fast_heatmap.svg)
+![Current Fast execution-time heatmap](benchmark_results/solver_scaling_current/solver_scaling_fast_heatmap.svg)
 
-#### 2. Best execution time
+#### Best execution time
 
-![Best solver execution-time heatmap](benchmark_results/solver_scaling/solver_scaling_best_heatmap.svg)
+![Current Best execution-time heatmap](benchmark_results/solver_scaling_current/solver_scaling_best_heatmap.svg)
 
-**Reading the heatmaps:** Rows show items per order; columns show available box types (3, 5, 10, 15, 20). Labels are median seconds. Both use the **same logarithmic teal color scale**: darker means slower. Compare matching cells across the two charts. The color scale is logarithmic to preserve differences between millisecond-scale and minute-scale scenarios.
+Each cell shows the median of three runs for that item count and carton catalogue size. The two charts share logarithmic shading; the text labels show actual milliseconds or seconds.
 
-#### 3. Fast baseline vs additional Best runtime
+#### Runtime comparison (20 carton types)
 
-![Fast baseline and estimated additional Best runtime across all eight item counts](benchmark_results/solver_scaling/solver_scaling_best_breakdown.svg)
+| Items | Fast median | Best median | Fast cartons | Best cartons |
+| ---: | ---: | ---: | ---: | ---: |
+| 5 | 1.8 ms | 13.4 ms | 1 | 1 |
+| 10 | 9.0 ms | 54.7 ms | 1 | 1 |
+| 15 | 20.4 ms | 118.2 ms | 1 | 1 |
+| 20 | 30.1 ms | 203.2 ms | 1 | 1 |
+| 30 | 89.7 ms | 461.8 ms | 1 | 1 |
+| 50 | 237.7 ms | 7.40 s | 17 | 2 |
+| 75 | 555.8 ms | 12.36 s | 2 | 2 |
+| 100 | 860.2 ms | 22.03 s | 34 | 3 |
 
-This chart focuses on **20 available box types**, across **all eight item counts**. Teal is the separately measured Fast median; orange is **Best median minus Fast median**. The full bar equals Best's median runtime. The orange portion is an **estimate of additional time**, not a directly instrumented stage within Best.
+**Interpretation:** Fast remains below one second for 100 items with 20 carton types (860 ms median), while Best takes 22.03 seconds. Best proved carton-count optimality in all 120 of its runs. Fast is substantially quicker, but its greedy carton selection can be poor: with 20 types it used 17 versus 2 cartons at 50 items, and 34 versus 3 at 100 items. The next optimization should investigate those quality regressions without sacrificing Fast's low latency.
 
-#### What the results tell us
+**Historical results:** The earlier [scaling benchmark](benchmark_results/solver_scaling/summary.csv), its charts, the old 50-vs-75 profiling investigation, and the saved [2,000-order iHub comparison](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) remain historical and should not be confused with these current-strategy measurements. This refreshed benchmark measures synthetic scaling only; it does not update the 2,000-order scorecard.
 
-- **Runtime is not proportional to item count.** With 20 box types, Fast takes **12.68 s for 50 items**, but **4.98 s for 75 items**. Packing difficulty and the alternatives searched matter more than item count alone.
-- **Best generally takes longer.** It starts with Fast's valid solution, then uses an exact constraint solver to evaluate alternatives and prove the carton-count objective when possible. The additional work depends on carton combinations, orientations, and three-dimensional non-overlap constraints.
-- **More box types can increase search cost.** A larger catalogue gives the solver more carton alternatives, although some scenarios can be rejected quickly.
-
-**Historical benchmark notice (pre-greedy-only Fast):** The committed scaling results, charts, and profiling below were produced with the previous Fast implementation, which included a fewer-carton combination search. They must not be presented as measurements of the new Fast implementation. Regenerate the benchmark artifacts before making new performance claims. The saved 2,000-order comparison and demo scorecards likewise reflect the previous algorithm until rerun.
-
-**Profiling insight (previous Fast):** A separate six-case profiling investigation of 50 versus 75 items found median `feasible_placements()` call counts of **12,771** and **3,909**, respectively (about **3.3×** more checks for 50 items). Almost all profiled time occurred in the search for fewer cartons rather than the initial greedy packing. Early candidate rejection and changes in placement order are plausible mechanisms, but the profiler did not record the exact rejection points. See the [diagnostic workflow](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37878918335).
-
-**Reproducibility:** [Benchmark script](notebooks/benchmark_solver_scaling.py) · [Committed summary](benchmark_results/solver_scaling/summary.csv) · [Individual runs](benchmark_results/solver_scaling/raw_results.csv) · [Original completed benchmark artifact](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37873447275/artifacts/11591919183). Chart values in this section are sourced from the committed summary; the original artifact should be reconciled separately before claiming the two are identical.
+**Reproduce and inspect:** [Benchmark script](notebooks/benchmark_solver_scaling.py) · [Full run and downloadable CSV/PNG artifacts](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37908700572/artifacts/11606067205). The source artifact contains `raw_results.csv`, `summary.csv`, and the full chart set.
 
 </details>
 

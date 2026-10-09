@@ -63,7 +63,6 @@ class BestFitSolver:
             choices = sorted(
                 combinations_with_replacement(boxes, carton_count),
                 key=lambda choice: (
-                    max(box.external_volume for box in choice),
                     sum(box.external_volume for box in choice),
                     tuple(box.code for box in choice),
                 ),

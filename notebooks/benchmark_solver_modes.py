@@ -110,6 +110,7 @@ def benchmark(records: list[dict[str, Any]], best_timeout_ms: float = 5000) -> l
             "best_runtime_ms": best.runtime_ms,
             "best_optimality_proven": best.optimality_proven,
             "best_search_status": best.search_status,
+            "best_result_source": best.best_result_source,
         })
     return rows
 

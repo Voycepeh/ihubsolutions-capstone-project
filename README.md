@@ -320,6 +320,14 @@ result = solve_order(
 
 This makes Best a deliberate tradeoff: callers can give the optimizer more time when carton reduction matters, or keep the search tightly bounded when response time matters.
 
+### Fast vs Best vs iHub: carton recommendation quality
+
+![Fast and Best compared with iHub on policy-compliant orders](benchmark_results/solver_demo/fast_best_ihub_comparison.svg)
+
+This chart is generated from the **same 2,000-order v2 benchmark CSV** used by the Solver Demo. Each bar compares the solver's recommendation with iHub's recorded result: first by **number of cartons**, then by **largest carton size**, then by **total external carton volume**. The comparison excludes iHub orders flagged for exceeding the recorded Box9 fill cap; these exceptions remain in the CSV for separate inspection. The iHub record does not include independently verifiable 3D placements.
+
+The chart is regenerated with the benchmark in GitHub Actions; until that workflow finishes and commits the SVG, use the [benchmark CSV](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) and [interactive demo](notebooks/Solver%20Demo.ipynb) rather than interpreting an old chart.
+
 ### Solver execution time: Fast vs Best (9 October 2026)
 
 **Updated benchmark after remaining-order-aware Fast carton selection.** [Successful full benchmark run #37913140382](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37913140382) completed all **240 runs**: 8 item counts × 5 carton catalogue sizes × 2 modes × 3 repetitions, using the original `notebooks/benchmark_solver_scaling.py` script and uncapped search (`max_runtime_ms=None`). Results are synthetic scaling measurements, not production latency guarantees.

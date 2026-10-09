@@ -4,6 +4,33 @@ NUS Industry 4.0 Master's capstone project for practical 3D carton recommendatio
 
 The package takes an order and carton catalogue, applies configurable packing rules, and returns a validated carton recommendation with item orientations and XYZ placements.
 
+## Try the Solver Demo
+
+**Pick an order and compare our solver with iHub.** The [interactive Solver Demo notebook](notebooks/Solver%20Demo.ipynb) loads the original sample order and its packing constraints, runs both **Fast** and **Best**, and places their recommendations alongside iHub's recorded result.
+
+Open the notebook, run the setup cells, then change one value:
+
+```python
+# Choose any Order ID in the development dataset.
+ORDER_ID = 428
+SHOW_ITEMS = True
+SHOW_3D = False
+
+selected_comparison = compare_order(
+    ORDER_ID,
+    show_items=SHOW_ITEMS,
+    visualize=SHOW_3D,
+)
+```
+
+The comparison shows the **number of cartons, selected carton types, fill limits, carton volume, runtime, and validation or proof status**. Set `SHOW_3D = True` to inspect the validated Best packing and its item positions.
+
+The demo runs the solver **only for the order you select**. The completed [2,000-order benchmark CSV](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) is loaded separately for the overall scorecard, so opening the notebook does not rerun the entire benchmark. iHub's historical answer is a comparison baseline, never an input to the solver.
+
+**[Open the Solver Demo →](notebooks/Solver%20Demo.ipynb)**
+
+---
+
 <details>
 <summary><h2>Public API</h2></summary>
 
@@ -342,7 +369,7 @@ This chart focuses on **20 available box types**, across **all eight item counts
 | [Product specification](src/PRODUCT_SPEC.md) | Detailed functional rules and API contract |
 | [Research and literature](docs/solver-approach-and-literature.md) | Academic references and rationale for the chosen approach |
 | [Development datasets](data/raw/README.md) | v1/v2 schemas, carton catalogues and packing parameters ([change log](data/raw/CHANGELOG.md)) |
-| [Solver Demo](notebooks/Solver%20Demo.ipynb) | Worked examples, Fast/Best/iHub comparisons, visualization, and the 2,000-order benchmark |
+| [Solver Demo](notebooks/Solver%20Demo.ipynb) | Select any order, compare live Fast/Best against iHub, inspect 3D placements, and view the saved benchmark |
 | [Solver Guardrail Simulation](notebooks/Simulated%20Rule%20Proof.ipynb) | Executable Config + Items + Boxes scenarios showing the real solver skipping cartons, choosing fallbacks, or rejecting orders when guardrails apply |
 
 Historical iHub carton choices are used only as reference results for evaluation. They are not passed into `solve_order()` and do not determine the solver recommendation.

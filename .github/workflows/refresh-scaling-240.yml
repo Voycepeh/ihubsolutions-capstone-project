@@ -5,6 +5,7 @@ on:
     branches: [fix-carton-total-volume-objective]
     paths:
       - '.github/workflows/refresh-scaling-240.yml'
+      - 'notebooks/artifacts/benchmark_2000_best_vs_ihub.csv'
   workflow_dispatch:
 
 permissions:

@@ -276,11 +276,11 @@ result = solve_order(
 
 This makes Best a deliberate tradeoff: callers can give the optimizer more time when carton reduction matters, or keep the search tightly bounded when response time matters.
 
-### Fast vs Best latency: uncapped benchmark
+### Fast vs Best latency distributions: uncapped benchmark
 
-The comparison below uses **20 available carton types** and shows Fast and Best in two side-by-side bar charts with the same vertical scale. Each bar is the **median of three runs**. Both modes receive the same synthetic order and carton catalogue for each case.
+The comparison below uses **20 available carton types** and shows Fast and Best in two side-by-side **box plots** with the same vertical scale. Each box shows the distribution of **three runs**, including the median, quartiles, and the individual measurements. Both modes receive the same synthetic order and carton catalogue for each case.
 
-![Fast versus Best solver latency, side-by-side bars](benchmark_results/solver_scaling/solver_scaling_fast_vs_best.svg)
+![Fast versus Best solver latency, side-by-side box plots](benchmark_results/solver_scaling/solver_scaling_fast_vs_best.svg)
 
 The benchmark covers **5, 10, 15, 20, 30, 50, 75, and 100 items**, **3, 5, 10, 15, and 20 available carton types**, **three repeats**, and both modes: **240 executions** in total. Each larger order retains all items from the smaller order for the same seed, with varied item dimensions, weights, and rotation settings. The benchmark passes `max_runtime_ms=None` so the solver search is **not capped**. This differs from the public API's default 900 ms search budget.
 
@@ -295,9 +295,44 @@ The benchmark covers **5, 10, 15, 20, 30, 50, 75, and 100 items**, **3, 5, 10, 1
 | 75 | 3.24 s | 16.40 s |
 | 100 | 83.81 s | 105.83 s |
 
-**Interpretation:** Best takes longer because it starts with Fast and evaluates additional packing alternatives. For 100 items and 20 carton types, the median was approximately **84 seconds for Fast** versus **106 seconds for Best**. Latency does not increase monotonically with item count because the packing difficulty and search branches can change as items are added. Best reported optimal solutions in all three repeats of that largest scenario. Optimality is about the carton-count objective, not proof that Best is the fastest mode.
+**Best runtime breakdown:** The benchmark plotting script also produces `solver_scaling_best_breakdown.png`, a stacked comparison of the standalone Fast runtime and the *estimated* additional time spent by Best. Because Fast and Best are measured as separate calls, the extra portion is calculated from paired-run differences; it is not direct instrumentation of Best's internal phases. The box plots remain the primary view for runtime variation. See the [chart regeneration workflow](.github/workflows/tests.yml) for the generated chart artifact.
 
-These are **synthetic scaling results**, not production latency guarantees. The measured runtime covers solver execution, not full application request overhead. The benchmark records `cartons_used` for both modes so carton reduction can be assessed separately from latency.
+### Why 75 items were faster than 50
+
+In the benchmark with **20 available box types**, packing 75 items was faster than packing 50 items. We investigated with six targeted profiling runs (three matching seeds for each item count).
+
+| Measurement (median of 3 runs) | 50 items | 75 items |
+| --- | ---: | ---: |
+| Original Fast runtime (unprofiled) | 11.28 s | 3.24 s |
+| Feasible-placement calls | 12,771 | 3,909 |
+| Placement-scoring calls | 493,103 | 115,741 |
+| Final cartons used | 2 | 2 |
+
+**How Fast works:** It builds an initial packing plan, then tests alternative combinations using fewer cartons. For each candidate, it attempts to place items one by one. If an item cannot fit, that candidate is rejected immediately without processing the remaining items.
+
+**Why the reversal is possible:** A 50-item candidate may successfully place many items before failing, requiring substantial placement work. A 75-item candidate could fail earlier and be rejected more cheaply. Adding items can also change the size-sorted placement order, creating a different search path.
+
+**What we confirmed:** The 50-item scenarios performed approximately **3.3× more feasible-placement calls**. Nearly all profiled execution time occurred in the *fewer-cartons improvement search*, not the initial greedy packing. **What is not yet proven:** We have not recorded the exact carton combinations and the item at which each failed, so early rejection and changed placement ordering remain plausible explanations, not confirmed individual causes.
+
+**Key takeaway:** More items do not necessarily mean longer execution time. The runtime of a heuristic 3D packing solver depends heavily on which alternatives it explores, not only the number of items. Worst-case exponential complexity does not imply a smooth exponential runtime curve on every order. Profiling introduces overhead, so use the original benchmark timings for runtime comparisons.
+
+Evidence: [targeted six-case profiling run](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37878918335) (artifact: `benchmark-50-vs-75-profiles`).
+
+### Why Best is computationally expensive: Fast vs Best execution time
+
+**Fast** first builds a valid packing plan and then tries a bounded set of alternatives to reduce the carton count. **Best starts by running Fast**, then uses an exact constraint solver to evaluate additional carton combinations and establish the best carton objective. This exact stage must consider which carton holds each item, its allowed orientation, its three-dimensional position, and non-overlap with other items. With 75 items there are **2,775 item pairs** whose spatial relationships may need to be considered per candidate carton, before additional orientation and assignment choices. Aggregate feasibility checks can reject many candidates quickly, so this is not a fixed amount of work for every order.
+
+| Items per order | Fast median | Best median | Additional Best time (difference of medians) |
+| --- | ---: | ---: | ---: |
+| 50 | 11.28 s | 19.21 s | ~7.92 s |
+| 75 | 3.24 s | 16.40 s | ~13.16 s |
+| 100 | 83.81 s | 105.83 s | ~22.02 s |
+
+**How to read the comparison:** The chart-generation script also creates `solver_scaling_best_breakdown.png`, a stacked view of **Fast baseline + estimated additional Best search**. Fast and Best were benchmarked separately, so the stacked portions are *estimates*, not instrumented internal stage durations. The box plots show the spread across the three runs.
+
+**Trade-off:** Fast prioritizes finding a valid packing quickly without guaranteeing optimality. Best spends extra time finding and proving the optimal carton objective. In the 100-item, 20-carton-type scenarios, Best reported optimal solutions in all three repeats. That optimality result concerns the carton objective, not speed. Runtime does not increase smoothly with item count because the number and difficulty of packing alternatives vary.
+
+These are **synthetic scaling results**, not production latency guarantees. The measured runtime covers solver execution, not full application request overhead. The benchmark records `cartons_used` for both modes so carton reduction can be assessed separately from latency. The box plots reveal the run-to-run spread that a median-only bar chart hides.
 
 **Reproducibility:** [Benchmark script](notebooks/benchmark_solver_scaling.py) · [Completed 240-run results and charts](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37873447275/artifacts/11591919183) · [Chart regeneration workflow](.github/workflows/tests.yml). Chart-only changes should reuse the completed CSV results rather than rerun the solver grid.
 

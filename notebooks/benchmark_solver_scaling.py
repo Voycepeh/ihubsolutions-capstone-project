@@ -180,65 +180,104 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Side-by-side bar charts keep Fast and Best directly comparable.
-    # Both panels share the same linear y-axis; each bar shows the median
-    # of all repeats for the largest available box catalogue.
+    # Box plots show the full three-run spread instead of only the median.
+    # Both panels use the same vertical axis and matching item counts.
     comparison_box_count = max(row["box_types"] for row in summary)
     item_counts = sorted({row["items"] for row in summary})
+    raw_path = output_dir / "raw_results.csv"
+    if not raw_path.exists():
+        raise FileNotFoundError(f"Box plots require individual benchmark runs: {raw_path}")
+    with raw_path.open(newline="", encoding="utf-8") as source:
+        raw_rows = list(csv.DictReader(source))
     figure, axes = plt.subplots(1, 2, figsize=(15, 6), sharey=True)
     for axis, mode in zip(axes, ("fast", "best")):
-        lookup = {
-            row["items"]: row["median_runtime_ms"] / 1000
-            for row in summary
-            if row["mode"] == mode and row["box_types"] == comparison_box_count
-        }
-        values = [lookup[item] for item in item_counts]
-        bars = axis.bar(range(len(item_counts)), values, width=0.65)
-        axis.bar_label(bars, fmt="%.2f", padding=3, fontsize=8)
-        axis.set_xticks(range(len(item_counts)), labels=item_counts)
+        distributions = [
+            [float(row["runtime_ms"]) / 1000 for row in raw_rows
+             if int(row["items"]) == item and int(row["box_types"]) == comparison_box_count
+             and row["mode"] == mode]
+            for item in item_counts
+        ]
+        if any(not values for values in distributions):
+            raise ValueError(f"Missing raw benchmark runs for {mode} with {comparison_box_count} box types")
+        axis.boxplot(distributions, tick_labels=[str(item) for item in item_counts],
+                     showmeans=True, meanprops={"marker": "D", "markerfacecolor": "white",
+                                                 "markeredgecolor": "#334155", "markersize": 4})
+        for index, values in enumerate(distributions, start=1):
+            axis.scatter([index] * len(values), values, s=15, alpha=0.55, zorder=3)
         axis.set_xlabel("Items in one order")
         axis.set_title(f"{mode.title()} mode")
         axis.grid(axis="y", alpha=0.2)
         axis.set_axisbelow(True)
-    axes[0].set_ylabel("Median solver execution latency (seconds)")
-    figure.suptitle(
-        f"Solver latency comparison ({comparison_box_count} available box types)"
-    )
+    axes[0].set_ylabel("Solver execution latency (seconds)")
+    figure.suptitle(f"Solver latency distribution ({comparison_box_count} box types; individual runs shown)")
     figure.tight_layout()
     figure.savefig(output_dir / "solver_scaling_fast_vs_best.png", dpi=160)
     plt.close(figure)
 
-    # Grouped bar charts compare catalogue sizes within each solver mode.
-    # Use a log scale for these detail charts because the full range spans
-    # milliseconds through minutes.
+    # Grouped box plots compare all available carton catalogue sizes.
     for mode in ("fast", "best"):
-        figure, axis = plt.subplots(figsize=(12, 6))
-        mode_rows = [row for row in summary if row["mode"] == mode]
-        box_counts = sorted({row["box_types"] for row in mode_rows})
-        lookup = {
-            (row["items"], row["box_types"]): row["median_runtime_ms"]
-            for row in mode_rows
-        }
-        group_width = 0.82
-        width = group_width / len(box_counts)
+        figure, axis = plt.subplots(figsize=(13, 6))
+        box_counts = sorted({row["box_types"] for row in summary if row["mode"] == mode})
+        width = 0.75 / len(box_counts)
         for index, box_count in enumerate(box_counts):
-            positions = [
-                item_index - group_width / 2 + (index + 0.5) * width
-                for item_index in range(len(item_counts))
+            distributions = [
+                [float(row["runtime_ms"]) for row in raw_rows
+                 if int(row["items"]) == item and int(row["box_types"]) == box_count
+                 and row["mode"] == mode]
+                for item in item_counts
             ]
-            values = [lookup[(item, box_count)] for item in item_counts]
-            axis.bar(positions, values, width=width, label=f"{box_count} box types")
+            if any(not values for values in distributions):
+                raise ValueError(f"Missing raw benchmark runs for {mode}, {box_count} box types")
+            positions = [i + 1 - 0.375 + (index + 0.5) * width for i in range(len(item_counts))]
+            axis.boxplot(distributions, positions=positions, widths=width * 0.85,
+                         manage_ticks=False, patch_artist=False)
         axis.set_yscale("log")
-        axis.set_xticks(range(len(item_counts)), labels=item_counts)
+        axis.set_xticks(range(1, len(item_counts) + 1), labels=item_counts)
         axis.set_xlabel("Items in one order")
-        axis.set_ylabel("Median solver latency (ms, log scale)")
-        axis.set_title(f"{mode.title()} solver scaling by box catalogue size")
+        axis.set_ylabel("Solver execution latency (ms, log scale)")
+        axis.set_title(f"{mode.title()} latency distributions by box catalogue size")
         axis.grid(axis="y", alpha=0.2)
         axis.set_axisbelow(True)
-        axis.legend(ncol=len(box_counts), loc="upper left")
         figure.tight_layout()
         figure.savefig(output_dir / f"solver_scaling_{mode}.png", dpi=160)
         plt.close(figure)
+
+    # Estimated breakdown of Best: its Fast incumbent plus subsequent search.
+    # Paired calls are measured independently, so the difference is approximate.
+    paired = defaultdict(dict)
+    for row in raw_rows:
+        key = (int(row["items"]), int(row["box_types"]), int(row["repeat"]))
+        paired[key][row["mode"]] = float(row["runtime_ms"]) / 1000
+    fast_medians = []
+    extra_medians = []
+    for item in item_counts:
+        samples = [modes for (count, boxes, _), modes in paired.items()
+                   if count == item and boxes == comparison_box_count
+                   and "fast" in modes and "best" in modes]
+        if not samples:
+            raise ValueError(f"No paired Fast/Best samples for {item} items")
+        fast_medians.append(statistics.median(sample["fast"] for sample in samples))
+        extra_medians.append(statistics.median(
+            sample["best"] - sample["fast"] for sample in samples
+        ))
+    figure, axis = plt.subplots(figsize=(12, 6))
+    x_positions = list(range(len(item_counts)))
+    axis.bar(x_positions, fast_medians, label="Fast baseline (separate call)")
+    axis.bar(x_positions, extra_medians, bottom=fast_medians,
+             label="Additional Best time (estimated)")
+    axis.set_xticks(x_positions, labels=item_counts)
+    axis.set_xlabel("Items in one order")
+    axis.set_ylabel("Runtime (seconds)")
+    axis.set_title(f"Estimated Best runtime breakdown ({comparison_box_count} box types)")
+    axis.legend()
+    axis.grid(axis="y", alpha=0.2)
+    axis.set_axisbelow(True)
+    figure.text(0.5, 0.01,
+                "Paired independent calls: difference is an estimate, not internal stage timing.",
+                ha="center", fontsize=9)
+    figure.tight_layout(rect=(0, 0.04, 1, 1))
+    figure.savefig(output_dir / "solver_scaling_best_breakdown.png", dpi=160)
+    plt.close(figure)
 
     # Heatmaps make the interaction between item count and catalogue size clear.
     for mode in ("fast", "best"):

@@ -93,3 +93,22 @@ jobs:
         with:
           name: benchmark-refreshed-charts
           path: benchmark_results/full/
+
+  diagnose-50-vs-75:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements.txt
+      - name: Profile only six Fast runs (50 vs 75 items, 20 box types)
+        run: python notebooks/diagnose_50_vs_75.py
+      - name: Upload search profile evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-50-vs-75-profiles
+          path: benchmark_results/diagnostics_50_vs_75/

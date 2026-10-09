@@ -9,6 +9,7 @@ on:
       - 'notebooks/update_benchmark_readme.py'
       - 'notebooks/benchmark_solver_modes.py'
       - 'notebooks/plot_solver_demo_comparison.py'
+      - 'notebooks/Solver Demo.ipynb'
   workflow_dispatch:
 
 permissions:

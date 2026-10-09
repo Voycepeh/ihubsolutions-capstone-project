@@ -19,7 +19,7 @@ def test_public_signature_exposes_user_configurable_packing_rules():
         "high_item_count_threshold": 6,
         "high_item_count_max_fill_pct": 70,
         "max_fill_pct": 100,
-        "max_runtime_ms": 900,
+        "max_runtime_ms": 5000,
         "deterministic": True,
     }
     assert "config" not in parameters
@@ -43,6 +43,8 @@ def test_complete_engine_flow_metrics_and_json_serialization():
     assert result.metrics.overall_utilization_pct == 12.5
     assert result.runtime_ms == result.metrics.runtime_ms
     json.dumps(result.to_dict())
+    assert result.best_result_source == "not_applicable"
+    assert result.to_dict()["best_result_source"] == "not_applicable"
 
 def test_result_string_is_readable():
     register_solver("fake",RowSolver())

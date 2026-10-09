@@ -6,7 +6,7 @@ The package takes an order and carton catalogue, applies configurable packing ru
 
 ## Try the Solver Demo
 
-**Pick an order and compare our solver with iHub.** The [interactive Solver Demo notebook](notebooks/Solver%20Demo.ipynb) loads the original sample order and its packing constraints, runs both **Fast** and **Best**, and places their recommendations alongside iHub's recorded result.
+**Pick an order and inspect the packing recommendation.** The [interactive Solver Demo notebook](notebooks/Solver%20Demo.ipynb) loads the original sample order and its packing constraints, runs both **Fast** and **Best**, and places their recommendations alongside iHub's recorded result.
 
 Open the notebook, run the setup cells, then change one value:
 
@@ -15,7 +15,7 @@ Open the notebook, run the setup cells, then change one value:
 compare_order(428, visualize=True)
 ```
 
-The comparison shows the **number of cartons, selected carton types, fill limits, carton volume, runtime, and validation or proof status**. Set `visualize=True` to inspect the validated Best packing and its item positions.
+The demo shows the **number of cartons, selected carton types, fill limits, carton volume, runtime, and validation or proof status**. Set `visualize=True` to inspect the validated Best packing and its item positions.
 
 The demo runs the solver **only for the order you select**. The completed [2,000-order benchmark CSV](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) is loaded separately for the overall scorecard, so opening the notebook does not rerun the entire benchmark. iHub's historical answer is a comparison baseline, never an input to the solver.
 
@@ -56,7 +56,7 @@ The normal solver choice is:
 
 **Timeout and fallback:** Best's configurable timeout is an **additional optimization budget after Fast finishes**, not a limit on the Fast baseline. Keep the best independently validated result found so far. If Best finds no improvement before its timeout, return the Fast baseline. Best must never return more cartons than Fast for the same order and constraints.
 
-**Benchmark note:** Current synthetic scaling results are presented below. The saved 2,000-order iHub comparison is historical and has not been rerun for the new Fast strategy.
+**Benchmark scope:** The saved comparison with iHub evaluates **carton count only**. Equal carton counts do not establish equal packing quality: our Best objective also considers smaller carton choices and space use when carton counts tie.
 
 
 </details>
@@ -357,9 +357,9 @@ The benchmark artifact contains the **new Fast and Best latency heatmaps**, Fast
 
 Values are medians of three repeat runs per scenario. Carton counts are also medians. **Best proved carton-count optimality in all 120 Best runs** according to the benchmark summary.
 
-**Interpretation:** With 20 carton types, the new remaining-order-aware Fast selection uses **2 cartons at 50 items** (previously 17) and **3 cartons at 100 items** (previously 34), matching Best's median carton counts in these scenarios. The new Fast median at 100 items is **138.7 ms**, versus **13,519.5 ms** for Best. This is evidence of a substantial improvement on these seeded synthetic cases; it does not establish optimality for Fast on arbitrary orders.
+**Conclusion:** In these seeded synthetic scenarios, Fast matched Best's median carton counts while running substantially faster. At 100 items with 20 carton types, Fast took **138.7 ms** versus **13,519.5 ms** for Best. Matching carton counts does **not** mean the recommendations are identical: Best also aims to choose smaller cartons and improve space use when carton counts tie. These results do not establish Fast's optimality on arbitrary orders.
 
-**Historical comparison:** The previous [full benchmark run #37908700572](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37908700572) used the older Fast carton selection. The saved [2,000-order iHub comparison](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) has **not** been rerun for this change and remains historical. Do not mix these results.
+**Comparison scope:** The [2,000-order iHub scorecard](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) compares **carton counts only** and predates the latest Fast changes. It does not measure whether the chosen cartons are smaller or better utilized.
 
 **Reproduce:** `python notebooks/benchmark_solver_scaling.py --repeats 3`. The full [new artifact](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37913140382/artifacts/11607711940) contains all chart images and raw measurements.
 

@@ -1,0 +1,94 @@
+name: Benchmark Best 30 Seconds (2000 Orders)
+
+on:
+  push:
+    branches: [benchmark-best-30s-2000-20261009]
+    paths:
+      - '.github/workflows/benchmark-best-30s.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  batch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python -m pip install -r requirements.txt
+      - name: Benchmark 100 orders with 30-second Best limit
+        run: |
+          mkdir -p benchmark_results/solver_demo_30s
+          python -u notebooks/benchmark_solver_modes.py data/raw/data_samples_v2.json --start $(( ${{ matrix.batch }} * 100 )) --limit 100 --best-timeout-ms 30000 --csv benchmark_results/solver_demo_30s/batch_${{ matrix.batch }}.csv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: best-30s-batch-${{ matrix.batch }}
+          path: benchmark_results/solver_demo_30s/batch_${{ matrix.batch }}.csv
+
+  combine:
+    needs: batch
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: best-30s-batch-*
+          path: benchmark_results/solver_demo_30s/parts
+          merge-multiple: true
+      - name: Combine and verify 2000 rows
+        run: |
+          python - <<'PY'
+          import csv
+          from pathlib import Path
+          folder=Path("benchmark_results/solver_demo_30s")
+          parts=folder/"parts"
+          rows=[]
+          for i in range(20):
+              with (parts/f"batch_{i}.csv").open(newline="") as f:
+                  rows.extend(csv.DictReader(f))
+          assert len(rows)==2000, len(rows)
+          assert len({r["order_id"] for r in rows})==2000
+          assert all(int(r["best_cartons"])<=int(r["fast_cartons"]) for r in rows)
+          with (folder/"benchmark_2000_best_30s_vs_ihub.csv").open("w",newline="") as f:
+              writer=csv.DictWriter(f,fieldnames=list(rows[0]))
+              writer.writeheader()
+              writer.writerows(rows)
+          eligible=[r for r in rows if r["ihub_box9_over_fill_cap"]=="False"]
+          for mode in ("fast","best"):
+              def objective(r,prefix):
+                  return (int(r[f"{prefix}_cartons"]),float(r[f"{prefix}_largest_carton_volume_mm3"]),float(r[f"{prefix}_external_volume_mm3"]))
+              results=[(objective(r,mode)>objective(r,"ihub"))-(objective(r,mode)<objective(r,"ihub")) for r in eligible]
+              print(mode,"eligible",len(eligible),"better/equal/worse",results.count(-1),results.count(0),results.count(1))
+          for oid in ("382","1778"):
+              r=next(r for r in rows if r["order_id"]==oid)
+              print("ORDER",oid,"iHub",r["ihub_cartons"],"Fast",r["fast_cartons"],"Best",r["best_cartons"],"status",r["best_search_status"],"optimality",r["best_optimality_proven"],"runtime_ms",r["best_runtime_ms"])
+          PY
+      - name: Render separate 30-second comparison chart
+        run: |
+          python -m pip install numpy matplotlib
+          python notebooks/plot_solver_demo_comparison.py benchmark_results/solver_demo_30s/benchmark_2000_best_30s_vs_ihub.csv benchmark_results/solver_demo_30s/fast_best_30s_ihub_comparison.svg
+      - uses: actions/upload-artifact@v4
+        with:
+          name: best-30s-full-benchmark
+          path: benchmark_results/solver_demo_30s/*csv
+      - name: Commit 30-second results and chart
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add benchmark_results/solver_demo_30s/benchmark_2000_best_30s_vs_ihub.csv benchmark_results/solver_demo_30s/fast_best_30s_ihub_comparison.svg
+          git commit -m "Save 2000-order Best 30-second benchmark results"
+          git fetch origin "${{ github.ref_name }}"
+          git rebase -X theirs "origin/${{ github.ref_name }}"
+          git push origin "HEAD:${{ github.ref_name }}"

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from itertools import combinations_with_replacement
+from math import ceil
 
 from ..models import Box, PackedBox, PackingConfig, PackingPlan, PhysicalItem
 from ..placement import (
@@ -118,7 +119,11 @@ class FastFitSolver:
         opened: list[tuple[PackedBox, Box]] = []
         trace: list[dict[str, object]] = []
 
-        for item in ordered:
+        for item_index, item in enumerate(ordered):
+            remaining_items = ordered[item_index:]
+            remaining_volume = sum(pending.volume for pending in remaining_items)
+            remaining_weight = sum(pending.weight for pending in remaining_items)
+            remaining_fill = effective_max_fill_pct(len(items), config) / 100.0
             # Score every feasible placement in every carton already opened.
             existing = []
             for box_index, (packed_box, box) in enumerate(opened):
@@ -161,8 +166,10 @@ class FastFitSolver:
                 continue
 
             # If a new carton is required, score every feasible catalogue option.
-            # No open carton works, so evaluate every carton type and choose the
-            # smallest feasible external carton with a valid 3D placement.
+            # No open carton works. Rank carton types by how many would be
+            # needed for the remaining order, then by external carton volume.
+            # Volume/weight are only screening estimates: placements still
+            # require full 3D feasibility checks.
             new_options = []
             for box in boxes:
                 instance_id = f"carton-{len(opened) + 1}"
@@ -180,8 +187,14 @@ class FastFitSolver:
                     })
                 for candidate in candidates:
                     remaining = packed_box.usable_dimensions.volume - item.volume
-                    # New-carton objective: smallest feasible external carton first.
-                    score = (box.external_volume, remaining, box.code)
+                    capacity = packed_box.usable_dimensions.volume * remaining_fill
+                    projected_by_volume = ceil(remaining_volume / capacity) if capacity > 0 else len(remaining_items)
+                    projected_by_weight = (ceil(remaining_weight / box.max_weight)
+                                           if box.max_weight > 0 else len(remaining_items))
+                    projected_cartons = max(projected_by_volume, projected_by_weight)
+                    # Prefer fewer estimated cartons; among equally promising
+                    # options choose the smaller external carton.
+                    score = (projected_cartons, box.external_volume, remaining, box.code)
                     new_options.append((score, packed_box, box, candidate))
             if not new_options:
                 return PackingPlan([p for p, _ in opened], [item.instance_id],
@@ -195,7 +208,7 @@ class FastFitSolver:
                     "carton": packed_box.instance_id,
                     "box": box.code,
                     "outcome": "PLACED",
-                    "reason": "best-scoring new carton and 3D placement",
+                    "reason": "remaining-order capacity estimate and valid 3D placement",
                     "placement": candidate,
                 })
 

@@ -26,7 +26,7 @@ def main() -> None:
     if not eligible:
         raise ValueError("No policy-compliant reference orders")
 
-    fields = ("cartons", "largest_carton_volume_mm3", "external_volume_mm3")
+    fields = ("cartons", "external_volume_mm3")
     def objective(row: dict[str, str], mode: str) -> tuple[float, ...]:
         return tuple(float(row[f"{mode}_{field}"]) for field in fields)
 
@@ -65,7 +65,7 @@ def main() -> None:
     ax.set_axisbelow(True)
     fig.text(0.125, 0.01,
              f"{len(eligible):,} policy-compliant reference orders; {len(rows)-len(eligible):,} flagged iHub fill-cap exceptions excluded. "
-             "Rank: fewer cartons, then smaller largest carton, then lower total carton volume.",
+             "Rank: fewer cartons, then lower total external carton volume.",
              fontsize=8, color="#536273")
     fig.subplots_adjust(bottom=0.31, top=0.81)
     args.output_path.parent.mkdir(parents=True, exist_ok=True)

@@ -54,7 +54,7 @@ The normal solver choice is:
 | `fast` | Low latency | Greedy placement followed by up to **3 attempts** to find a better valid arrangement. Return the best valid Fast result. |
 | `best` | Fewer cartons | Complete Fast first and save its result as the baseline. Then use **Google OR-Tools CP-SAT** to search for a better valid three-dimensional packing. |
 
-**Timeout and fallback:** Best's configurable timeout is an **additional optimization budget after Fast finishes**, not a limit on the Fast baseline. Keep the best independently validated result found so far. If Best finds no improvement before its timeout, return the Fast baseline. Best must never return more cartons than Fast for the same order and constraints.
+**Timeout and fallback:** Best defaults to **5 seconds of additional exact search after Fast finishes**. If search reaches its deadline, it returns the validated Fast baseline with `best_result_source="fast_fallback"` and `optimality_proven=False`. Best must never return more cartons than Fast for the same order and constraints.
 
 **Benchmark scope:** The saved comparison with iHub evaluates **carton count only**. Equal carton counts do not establish equal packing quality: our Best objective also considers smaller carton choices and space use when carton counts tie.
 
@@ -309,7 +309,7 @@ Best does more work because it starts with the Fast packing and then searches al
 
 ### Escape hatch: bounded Best search
 
-The public API lets callers bound how long Best is allowed to search using `max_runtime_ms`. Best first completes Fast (greedy placement plus up to three improvement attempts), then starts its additional CP-SAT search budget from the validated Fast baseline. If the Best search reaches its configured time limit, return the best independently validated packing found so far; if there is no improvement, return the Fast baseline. The timeout applies to the additional Best search after Fast completes.
+The public API defaults to a 5-second Best search budget (`max_runtime_ms=5000`) and callers can override it. Best first completes Fast (greedy placement plus up to three improvement attempts), then starts its additional CP-SAT search budget from the validated Fast baseline. If the Best search reaches its configured time limit, return the best independently validated packing found so far; if there is no improvement, return the Fast baseline. The timeout applies to the additional Best search after Fast completes.
 
 ```python
 result = solve_order(

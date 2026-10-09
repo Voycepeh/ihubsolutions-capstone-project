@@ -256,7 +256,7 @@ For implementation details, use the dedicated Fast and Best guides below rather 
 </details>
 
 <details>
-<summary><h2>Why Best is computationally heavy</h2></summary>
+<summary><h2>Fast vs Best: Execution Time</h2></summary>
 
 
 Best does more work because it starts with the Fast packing and then searches alternative carton combinations with an exact 3D feasibility model. As the order contains more items and the catalogue contains more carton types, there are more carton combinations, assignments, orientations, positions, and non-overlap relationships to evaluate.
@@ -318,7 +318,7 @@ In the benchmark with **20 available box types**, packing 75 items was faster th
 
 Evidence: [targeted six-case profiling run](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37878918335) (artifact: `benchmark-50-vs-75-profiles`).
 
-### Why Best is computationally expensive: Fast vs Best execution time
+### Why Best takes longer
 
 **Fast** first builds a valid packing plan and then tries a bounded set of alternatives to reduce the carton count. **Best starts by running Fast**, then uses an exact constraint solver to evaluate additional carton combinations and establish the best carton objective. This exact stage must consider which carton holds each item, its allowed orientation, its three-dimensional position, and non-overlap with other items. With 75 items there are **2,775 item pairs** whose spatial relationships may need to be considered per candidate carton, before additional orientation and assignment choices. Aggregate feasibility checks can reject many candidates quickly, so this is not a fixed amount of work for every order.
 

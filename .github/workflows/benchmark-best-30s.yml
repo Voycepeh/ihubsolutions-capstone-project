@@ -2,7 +2,7 @@ name: Benchmark Best 5 Seconds (2000 Orders)
 
 on:
   push:
-    branches: [benchmark-best-5s-2000-20261009]
+    branches: [fix-carton-total-volume-objective]
     paths:
       - '.github/workflows/benchmark-best-30s.yml'
   workflow_dispatch:
@@ -68,13 +68,26 @@ jobs:
           eligible=[r for r in rows if r["ihub_box9_over_fill_cap"]=="False"]
           for mode in ("fast","best"):
               def objective(r,prefix):
-                  return (int(r[f"{prefix}_cartons"]),float(r[f"{prefix}_largest_carton_volume_mm3"]),float(r[f"{prefix}_external_volume_mm3"]))
+                  return (int(r[f"{prefix}_cartons"]),float(r[f"{prefix}_external_volume_mm3"]))
               results=[(objective(r,mode)>objective(r,"ihub"))-(objective(r,mode)<objective(r,"ihub")) for r in eligible]
               print(mode,"eligible",len(eligible),"better/equal/worse",results.count(-1),results.count(0),results.count(1))
           for oid in ("382","1778"):
               r=next(r for r in rows if r["order_id"]==oid)
               print("ORDER",oid,"iHub",r["ihub_cartons"],"Fast",r["fast_cartons"],"Best",r["best_cartons"],"source",r["best_result_source"],"status",r["best_search_status"],"optimality",r["best_optimality_proven"],"runtime_ms",r["best_runtime_ms"])
           PY
+      - name: Promote the benchmark CSV to the Solver Demo source
+        run: |
+          mkdir -p notebooks/artifacts
+          cp benchmark_results/solver_demo_5s/benchmark_2000_best_5s_vs_ihub.csv notebooks/artifacts/benchmark_2000_best_vs_ihub.csv
+      - name: Regenerate README charts and results from CSV
+        run: |
+          python -m pip install numpy matplotlib
+          python notebooks/plot_solver_demo_comparison.py notebooks/artifacts/benchmark_2000_best_vs_ihub.csv benchmark_results/solver_demo/fast_best_ihub_comparison.svg
+          python notebooks/update_benchmark_readme.py
+      - name: Re-execute and save Solver Demo notebook outputs
+        run: |
+          python -m pip install jupyter nbconvert ipykernel
+          jupyter nbconvert --to notebook --execute --inplace "notebooks/Solver Demo.ipynb" --ExecutePreprocessor.timeout=1200
       - name: Render separate 5-second comparison chart
         run: |
           python -m pip install numpy matplotlib
@@ -87,7 +100,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add benchmark_results/solver_demo_5s/benchmark_2000_best_5s_vs_ihub.csv benchmark_results/solver_demo_5s/fast_best_5s_ihub_comparison.svg
+          git add benchmark_results/solver_demo_5s/benchmark_2000_best_5s_vs_ihub.csv benchmark_results/solver_demo_5s/fast_best_5s_ihub_comparison.svg notebooks/artifacts/benchmark_2000_best_vs_ihub.csv benchmark_results/solver_demo/fast_best_ihub_comparison.svg benchmark_results/solver_demo/fast_best_ihub_tornado.svg 'notebooks/Solver Demo.ipynb' README.md
           git commit -m "Save 2000-order Best 5-second benchmark results"
           git fetch origin "${{ github.ref_name }}"
           git rebase -X theirs "origin/${{ github.ref_name }}"

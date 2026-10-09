@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from itertools import combinations_with_replacement
-from time import perf_counter
 
 from ..models import Box, PackedBox, PackingConfig, PackingPlan, PhysicalItem
 from ..placement import (
@@ -27,12 +26,9 @@ class FastFitSolver:
             "search_status": "heuristic",
         })
         count = len(items)
-        attempts = 5 if count <= 6 else 3 if count <= 20 else 2 if count <= 50 else 1
+        attempts = 3
         if len(baseline.packed_boxes) <= 1 or baseline.unpacked_item_ids:
             return baseline
-        # Improvement budget begins after the baseline; this is not a hard
-        # wall-clock limit because placement generation is not interruptible.
-        deadline = perf_counter() + 0.1
         total_volume = sum(item.volume for item in items)
         total_weight = sum(item.weight for item in items)
         fill = effective_max_fill_pct(count, config) / 100.0
@@ -46,12 +42,12 @@ class FastFitSolver:
         best = baseline
         tried = 0
         for carton_count in range(1, len(baseline.packed_boxes)):
-            if tried >= attempts or perf_counter() >= deadline:
+            if tried >= attempts:
                 break
             # Prefer smaller overall carton volume. Avoid materializing all
             # combinations, which was a major source of scaling overhead.
             for choice in combinations_with_replacement(boxes, carton_count):
-                if tried >= attempts or perf_counter() >= deadline:
+                if tried >= attempts:
                     break
                 dims = [usable_dimensions(box, config) for box in choice]
                 if sum(dim.volume * fill for dim in dims) < total_volume:
@@ -67,9 +63,6 @@ class FastFitSolver:
                 ]
                 complete = True
                 for item in ordered:
-                    if perf_counter() >= deadline:
-                        complete = False
-                        break
                     options = []
                     for box_index, (packed_box, box) in enumerate(opened):
                         for placement in feasible_placements(item, packed_box, box, item_by_id, config):

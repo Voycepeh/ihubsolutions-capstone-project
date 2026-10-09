@@ -276,66 +276,35 @@ result = solve_order(
 
 This makes Best a deliberate tradeoff: callers can give the optimizer more time when carton reduction matters, or keep the search tightly bounded when response time matters.
 
-### Fast vs Best latency distributions: uncapped benchmark
+### Solver execution time: Fast vs Best
 
-The comparison below uses **20 available carton types** and shows Fast and Best in two side-by-side **box plots** with the same vertical scale. Each box shows the distribution of **three runs**, including the median, quartiles, and the individual measurements. Both modes receive the same synthetic order and carton catalogue for each case.
+The benchmark compares **8 order sizes × 5 box catalogue sizes × 2 solving modes × 3 repeats** (240 executions). Each larger synthetic order retains the items from the smaller order for the same seed. These runs use uncapped search (`max_runtime_ms=None`), so they are **not production API latency guarantees**. All three charts below use the committed [benchmark summary](benchmark_results/solver_scaling/summary.csv); each cell is the median of three runs.
 
-![Fast versus Best solver latency, side-by-side box plots](benchmark_results/solver_scaling/solver_scaling_fast_vs_best.svg)
+#### 1. Fast execution time
 
-The benchmark covers **5, 10, 15, 20, 30, 50, 75, and 100 items**, **3, 5, 10, 15, and 20 available carton types**, **three repeats**, and both modes: **240 executions** in total. Each larger order retains all items from the smaller order for the same seed, with varied item dimensions, weights, and rotation settings. The benchmark passes `max_runtime_ms=None` so the solver search is **not capped**. This differs from the public API's default 900 ms search budget.
+![Fast solver execution-time heatmap](benchmark_results/solver_scaling/solver_scaling_fast_heatmap.svg)
 
-### Runtime by order size and box catalogue size
+#### 2. Best execution time
 
-The two heatmaps show **median solver runtime (seconds)** across all benchmarked item counts and available box types. Read rows as **items per order** and columns as **box types available**. Compare the same cell between Fast and Best to see the runtime trade-off.
+![Best solver execution-time heatmap](benchmark_results/solver_scaling/solver_scaling_best_heatmap.svg)
 
-![Fast runtime heatmap across item counts and box catalogue sizes](benchmark_results/solver_scaling/solver_scaling_fast_heatmap.svg)
+**Reading the heatmaps:** Rows show items per order; columns show available box types (3, 5, 10, 15, 20). Labels are median seconds. Both use the **same logarithmic teal color scale**: darker means slower. Compare matching cells across the two charts. The color scale is logarithmic to preserve differences between millisecond-scale and minute-scale scenarios.
 
-![Best runtime heatmap across item counts and box catalogue sizes](benchmark_results/solver_scaling/solver_scaling_best_heatmap.svg)
+#### 3. Fast baseline vs additional Best runtime
 
-### Fast baseline and additional Best search time
+![Fast baseline and estimated additional Best runtime across all eight item counts](benchmark_results/solver_scaling/solver_scaling_best_breakdown.svg)
 
-![Stacked Fast baseline and estimated additional Best runtime for 50, 75 and 100 items](benchmark_results/solver_scaling/solver_scaling_best_breakdown.svg)
+This chart focuses on **20 available box types**, across **all eight item counts**. Teal is the separately measured Fast median; orange is **Best median minus Fast median**. The full bar equals Best's median runtime. The orange portion is an **estimate of additional time**, not a directly instrumented stage within Best.
 
-The stacked comparison highlights three larger scenarios with **20 box types**. The teal portion is Fast's median runtime; the orange portion is the **estimated additional Best runtime**, calculated as Best median minus Fast median. This is **not a direct measurement** of the Fast phase inside Best. The [benchmark workflow](.github/workflows/tests.yml) also generates `solver_scaling_best_breakdown.png` for all eight item counts in its downloadable artifacts. The box plots above show variation across the three repeats.
+#### What the results tell us
 
-### Why 75 items were faster than 50
+- **Runtime is not proportional to item count.** With 20 box types, Fast takes **12.68 s for 50 items**, but **4.98 s for 75 items**. Packing difficulty and the alternatives searched matter more than item count alone.
+- **Best generally takes longer.** It starts with Fast's valid solution, then uses an exact constraint solver to evaluate alternatives and prove the carton-count objective when possible. The additional work depends on carton combinations, orientations, and three-dimensional non-overlap constraints.
+- **More box types can increase search cost.** A larger catalogue gives the solver more carton alternatives, although some scenarios can be rejected quickly.
 
-In the benchmark with **20 available box types**, packing 75 items was faster than packing 50 items. We investigated with six targeted profiling runs (three matching seeds for each item count).
+**Profiling insight:** A separate six-case profiling investigation of 50 versus 75 items found median `feasible_placements()` call counts of **12,771** and **3,909**, respectively (about **3.3×** more checks for 50 items). Almost all profiled time occurred in the search for fewer cartons rather than the initial greedy packing. Early candidate rejection and changes in placement order are plausible mechanisms, but the profiler did not record the exact rejection points. See the [diagnostic workflow](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37878918335).
 
-| Measurement (median of 3 runs) | 50 items | 75 items |
-| --- | ---: | ---: |
-| Original Fast runtime (unprofiled) | 11.28 s | 3.24 s |
-| Feasible-placement calls | 12,771 | 3,909 |
-| Placement-scoring calls | 493,103 | 115,741 |
-| Final cartons used | 2 | 2 |
-
-**How Fast works:** It builds an initial packing plan, then tests alternative combinations using fewer cartons. For each candidate, it attempts to place items one by one. If an item cannot fit, that candidate is rejected immediately without processing the remaining items.
-
-**Why the reversal is possible:** A 50-item candidate may successfully place many items before failing, requiring substantial placement work. A 75-item candidate could fail earlier and be rejected more cheaply. Adding items can also change the size-sorted placement order, creating a different search path.
-
-**What we confirmed:** The 50-item scenarios performed approximately **3.3× more feasible-placement calls**. Nearly all profiled execution time occurred in the *fewer-cartons improvement search*, not the initial greedy packing. **What is not yet proven:** We have not recorded the exact carton combinations and the item at which each failed, so early rejection and changed placement ordering remain plausible explanations, not confirmed individual causes.
-
-**Key takeaway:** More items do not necessarily mean longer execution time. The runtime of a heuristic 3D packing solver depends heavily on which alternatives it explores, not only the number of items. Worst-case exponential complexity does not imply a smooth exponential runtime curve on every order. Profiling introduces overhead, so use the original benchmark timings for runtime comparisons.
-
-Evidence: [targeted six-case profiling run](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37878918335) (artifact: `benchmark-50-vs-75-profiles`).
-
-### Why Best takes longer
-
-**Fast** first builds a valid packing plan and then tries a bounded set of alternatives to reduce the carton count. **Best starts by running Fast**, then uses an exact constraint solver to evaluate additional carton combinations and establish the best carton objective. This exact stage must consider which carton holds each item, its allowed orientation, its three-dimensional position, and non-overlap with other items. With 75 items there are **2,775 item pairs** whose spatial relationships may need to be considered per candidate carton, before additional orientation and assignment choices. Aggregate feasibility checks can reject many candidates quickly, so this is not a fixed amount of work for every order.
-
-| Items per order | Fast median | Best median | Additional Best time (difference of medians) |
-| --- | ---: | ---: | ---: |
-| 50 | 11.28 s | 19.21 s | ~7.92 s |
-| 75 | 3.24 s | 16.40 s | ~13.16 s |
-| 100 | 83.81 s | 105.83 s | ~22.02 s |
-
-**How to read the comparison:** The chart-generation script also creates `solver_scaling_best_breakdown.png`, a stacked view of **Fast baseline + estimated additional Best search**. Fast and Best were benchmarked separately, so the stacked portions are *estimates*, not instrumented internal stage durations. The box plots show the spread across the three runs.
-
-**Trade-off:** Fast prioritizes finding a valid packing quickly without guaranteeing optimality. Best spends extra time finding and proving the optimal carton objective. In the 100-item, 20-carton-type scenarios, Best reported optimal solutions in all three repeats. That optimality result concerns the carton objective, not speed. Runtime does not increase smoothly with item count because the number and difficulty of packing alternatives vary.
-
-These are **synthetic scaling results**, not production latency guarantees. The measured runtime covers solver execution, not full application request overhead. The benchmark records `cartons_used` for both modes so carton reduction can be assessed separately from latency. The box plots reveal the run-to-run spread that a median-only bar chart hides.
-
-**Reproducibility:** [Benchmark script](notebooks/benchmark_solver_scaling.py) · [Completed 240-run results and charts](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37873447275/artifacts/11591919183) · [Chart regeneration workflow](.github/workflows/tests.yml). Chart-only changes should reuse the completed CSV results rather than rerun the solver grid.
+**Reproducibility:** [Benchmark script](notebooks/benchmark_solver_scaling.py) · [Committed summary](benchmark_results/solver_scaling/summary.csv) · [Individual runs](benchmark_results/solver_scaling/raw_results.csv) · [Original completed benchmark artifact](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37873447275/artifacts/11591919183). Chart values in this section are sourced from the committed summary; the original artifact should be reconciled separately before claiming the two are identical.
 
 </details>
 

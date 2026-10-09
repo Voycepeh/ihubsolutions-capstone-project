@@ -1,9 +1,9 @@
-"""Stress benchmark Fast vs Best across item counts and carton catalogue sizes.
+"""Stress benchmark current Fast vs Best across item counts and carton catalogue sizes.
 
 This benchmark generates deterministic, nested synthetic orders. For a given seed,
 all smaller item-count scenarios are exact prefixes of the largest order, and
 Fast and Best see exactly the same packing problem. It is intended to reveal the point where
-solver latency becomes impractical as item count, carton choice, or both grow.
+solver latency becomes impractical as item count, carton choice, or both grow.\n\nThe saved CSVs from before the greedy-only Fast change are historical.\nRegenerate all results after changing either strategy; do not mix versions.
 
 Example:
     python notebooks/benchmark_solver_scaling.py --repeats 3

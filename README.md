@@ -334,11 +334,11 @@ This makes Best a deliberate tradeoff: callers can give the optimizer more time 
 
 Each cell shows the median of three runs for that item count and carton catalogue size. The two charts share logarithmic shading; all chart labels are in milliseconds (ms).
 
-#### Runtime distribution (20 carton types)
+#### Fast baseline and additional Best runtime (20 carton types)
 
-![Fast vs Best runtime spread, showing minimum, median and maximum of three runs in milliseconds](benchmark_results/solver_scaling_current/solver_scaling_fast_vs_best.svg)
+![Stacked chart of Fast baseline runtime and estimated additional Best runtime in milliseconds](benchmark_results/solver_scaling_current/solver_scaling_best_breakdown.svg)
 
-The whiskers show the minimum and maximum observed runtime; the orange marker and label show the median. **Both panels use milliseconds**, with separate labelled vertical scales so the much faster Fast measurements remain readable. This chart uses the three raw runs rather than only the aggregated summary.
+**Teal** is the separately measured Fast median. **Orange** is the estimated additional Best time, calculated as Best median minus Fast median. The full stacked bar equals Best's median runtime. This difference is an estimate rather than an instrumented measurement of Best's internal search stage. All values use milliseconds (ms), with thousands separators.
 
 #### Runtime comparison (20 carton types)
 

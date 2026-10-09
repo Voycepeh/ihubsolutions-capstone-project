@@ -288,9 +288,9 @@ The benchmark covers **5, 10, 15, 20, 30, 50, 75, and 100 items**, **3, 5, 10, 1
 
 The two heatmaps show **median solver runtime (seconds)** across all benchmarked item counts and available box types. Read rows as **items per order** and columns as **box types available**. Compare the same cell between Fast and Best to see the runtime trade-off.
 
-![Fast runtime heatmap across item counts and box catalogue sizes](benchmark_results/solver_scaling/solver_scaling_fast_heatmap.png)
+![Fast runtime heatmap across item counts and box catalogue sizes](benchmark_results/solver_scaling/solver_scaling_fast_heatmap.svg)
 
-![Best runtime heatmap across item counts and box catalogue sizes](benchmark_results/solver_scaling/solver_scaling_best_heatmap.png)
+![Best runtime heatmap across item counts and box catalogue sizes](benchmark_results/solver_scaling/solver_scaling_best_heatmap.svg)
 
 ### Fast baseline and additional Best search time
 

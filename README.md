@@ -332,22 +332,22 @@ This makes Best a deliberate tradeoff: callers can give the optimizer more time 
 
 ![Current Best execution-time heatmap](benchmark_results/solver_scaling_current/solver_scaling_best_heatmap.svg)
 
-Each cell shows the median of three runs for that item count and carton catalogue size. The two charts share logarithmic shading; the text labels show actual milliseconds or seconds.
+Each cell shows the median of three runs for that item count and carton catalogue size. The two charts share logarithmic shading; all chart labels are in milliseconds (ms).
 
 #### Runtime comparison (20 carton types)
 
-| Items | Fast median | Best median | Fast cartons | Best cartons |
+| Items | Fast median (ms) | Best median (ms) | Fast cartons | Best cartons |
 | ---: | ---: | ---: | ---: | ---: |
-| 5 | 1.8 ms | 13.4 ms | 1 | 1 |
-| 10 | 9.0 ms | 54.7 ms | 1 | 1 |
-| 15 | 20.4 ms | 118.2 ms | 1 | 1 |
-| 20 | 30.1 ms | 203.2 ms | 1 | 1 |
-| 30 | 89.7 ms | 461.8 ms | 1 | 1 |
-| 50 | 237.7 ms | 7.40 s | 17 | 2 |
-| 75 | 555.8 ms | 12.36 s | 2 | 2 |
-| 100 | 860.2 ms | 22.03 s | 34 | 3 |
+| 5 | 1.8 | 13.4 | 1 | 1 |
+| 10 | 9.0 | 54.7 | 1 | 1 |
+| 15 | 20.4 | 118.2 | 1 | 1 |
+| 20 | 30.1 | 203.2 | 1 | 1 |
+| 30 | 89.7 | 461.8 | 1 | 1 |
+| 50 | 237.7 | 7400.0 | 17 | 2 |
+| 75 | 555.8 | 12360.0 | 2 | 2 |
+| 100 | 860.2 | 22030.0 | 34 | 3 |
 
-**Interpretation:** Fast remains below one second for 100 items with 20 carton types (860 ms median), while Best takes 22.03 seconds. Best proved carton-count optimality in all 120 of its runs. Fast is substantially quicker, but its greedy carton selection can be poor: with 20 types it used 17 versus 2 cartons at 50 items, and 34 versus 3 at 100 items. The next optimization should investigate those quality regressions without sacrificing Fast's low latency.
+**Interpretation:** Fast takes 860 ms for 100 items with 20 carton types, while Best takes 22,030 ms. Best proved carton-count optimality in all 120 of its runs. Fast is substantially quicker, but its greedy carton selection can be poor: with 20 types it used 17 versus 2 cartons at 50 items, and 34 versus 3 at 100 items. The next optimization should investigate those quality regressions without sacrificing Fast's low latency.
 
 **Historical results:** The earlier [scaling benchmark](benchmark_results/solver_scaling/summary.csv), its charts, the old 50-vs-75 profiling investigation, and the saved [2,000-order iHub comparison](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) remain historical and should not be confused with these current-strategy measurements. This refreshed benchmark measures synthetic scaling only; it does not update the 2,000-order scorecard.
 

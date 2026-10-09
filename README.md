@@ -336,15 +336,15 @@ The charts below show execution time across synthetic orders with different item
 
 ![Fast and Best runtime breakdown](benchmark_results/solver_scaling_current/solver_scaling_best_breakdown.svg)
 
-**Conclusion:** Fast matched Best's median carton counts in these synthetic scenarios while running substantially faster. With 100 items and 20 carton types, Fast took **138.7 ms** versus **13,519.5 ms** for Best, and both used a median of **3 cartons**. However, this benchmark measures carton count and execution time, **not the size of the cartons selected**. Best prioritises fewer cartons, then a smaller largest carton, then lower total external carton volume. We need carton-volume measurements to establish whether Fast achieves the same carton count by using oversized boxes. These synthetic results do not guarantee performance or optimality on other orders.
+**Conclusion:** Fast matched Best's median carton counts in these synthetic scenarios while running substantially faster. With 100 items and 20 carton types, Fast took **138.7 ms** versus **13,519.5 ms** for Best, and both used a median of **3 cartons**. However, this benchmark measures carton count and execution time, **not the size of the cartons selected**. The business comparison prioritises fewer cartons, then smaller external volume: single carton volume for one-carton orders, or combined carton volume for multi-carton orders. We need carton-volume measurements to establish whether Fast achieves the same carton count by using oversized boxes. These synthetic results do not guarantee performance or optimality on other orders.
 
 ### Fast vs Best vs iHub: carton recommendation quality
 
 ![Fast and Best compared with iHub on policy-compliant orders](benchmark_results/solver_demo/fast_best_ihub_comparison.svg)
 
-This chart is generated from the **same 2,000-order v2 benchmark CSV** used by the Solver Demo. Each bar compares the solver's recommendation with iHub's recorded result: first by **number of cartons**, then by **largest carton size**, then by **total external carton volume**. The comparison excludes iHub orders flagged for exceeding the recorded Box9 fill cap; these exceptions remain in the CSV for separate inspection. The iHub record does not include independently verifiable 3D placements.
+This chart is generated from the **same 2,000-order v2 benchmark CSV** used by the Solver Demo. Each bar compares the solver's recommendation with iHub's recorded result: first by **number of cartons**; when counts match, by **box size for single-box orders** or **combined external box volume for multi-box orders**. The comparison excludes iHub orders flagged for exceeding the recorded Box9 fill cap; these exceptions remain in the CSV for separate inspection. The iHub record does not include independently verifiable 3D placements.
 
-**What the results show.** Across **2,000 orders**, **183 iHub references are flagged for exceeding the Box9 fill cap**, leaving **1,817** for the policy-screened comparison. Under the ranked objective (fewest cartons, then smallest largest carton, then lowest total external volume), **Fast: 18 better / 1,584 equal / 215 worse**; **Best: 67 better / 1,748 equal / 2 worse**.
+**What the results show.** Across **2,000 orders**, **183 iHub references are flagged for exceeding the Box9 fill cap**, leaving **1,817** for the policy-screened comparison. Under the ranked objective (fewest cartons, then smaller single box or lower combined multi-box volume), **Fast: 18 better / 1,584 equal / 215 worse**; **Best: 67 better / 1,748 equal / 2 worse**.
 
 #### Carton matching KPIs
 
@@ -358,16 +358,16 @@ This chart is generated from the **same 2,000-order v2 benchmark CSV** used by t
 
 ![Tornado chart of Fast and Best improvements and losses by first differing rule](benchmark_results/solver_demo/fast_best_ihub_tornado.svg)
 
-**Why recommendations win or lose.** The first rule that differs determines the outcome. Counts below are mutually exclusive and use the same **1,817 policy-screened orders** as the chart.
+**Why recommendations win or lose.** Compare **box count first**. If both recommendations use one box, compare that box's external volume. If both use two or more boxes, compare their **total external box volume**, even when one individual box is larger. The first applicable rule determines the result. All counts use the same **1,817 policy-screened orders**.
 
-| First differing rule | Fast better | Fast worse | Best better | Best worse |
+| Comparison rule | Fast better | Fast worse | Best better | Best worse |
 | --- | ---: | ---: | ---: | ---: |
-| 1. Fewer / more cartons | 1 | 41 | 2 | 2 |
-| 2. Smaller / larger largest carton | 17 | 170 | 63 | 0 |
-| 3. Lower / higher total external carton volume | 0 | 4 | 2 | 0 |
+| 1. Fewer / more boxes | 1 | 41 | 2 | 2 |
+| 2. Smaller / larger box (one box each) | 17 | 170 | 62 | 0 |
+| 3. Lower / higher total volume (multiple boxes each) | 0 | 4 | 3 | 0 |
 | **Total** | **18** | **215** | **67** | **2** |
 
-For Fast, **5.4%** of its 333 non-equal outcomes are improvements in largest carton size (17), while **51.1%** are losses on largest carton size (170). For Best, **94.0%** of its 67 improvements are due to a smaller largest carton (63); its **2 losses** are both due to using more cartons. These percentages describe the non-equal outcomes for each solver, not all 1,817 orders.
+Of Best's **67 improvements**, **62 (92.5%)** come from selecting a smaller single box, **3 (4.5%)** from reducing total volume in multi-box orders, and **2 (3.0%)** from using fewer boxes. Both Best losses involve using more boxes. The KPI scorecard above measures box-count and exact-type agreement independently of these ranked outcomes.
 
 Matching carton count does **not** necessarily mean choosing the same carton types or proving that iHub's historical arrangement was physically feasible.
 

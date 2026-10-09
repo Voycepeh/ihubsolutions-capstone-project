@@ -8,6 +8,7 @@ on:
       - 'src/bin_packing_3d/strategies/best.py'
       - 'notebooks/update_benchmark_readme.py'
       - 'notebooks/benchmark_solver_modes.py'
+      - 'notebooks/plot_solver_demo_comparison.py'
   workflow_dispatch:
 
 permissions:

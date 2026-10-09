@@ -93,6 +93,7 @@ def run_grid(
     repeats: int,
     max_runtime_ms: float | None,
     seed: int,
+    output_dir: Path | None = None,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for item_count in item_counts:
@@ -121,6 +122,10 @@ def run_grid(
                             "optimality_proven": result.optimality_proven,
                         }
                     )
+                    if output_dir is not None:
+                        # Persist every completed case: an uncapped exact search may
+                        # outlive the CI runner, but earlier measurements remain usable.
+                        write_csv(output_dir / "raw_results.csv", rows)
                     print(
                         f"{item_count:>3} items x {box_count:>2} boxes | "
                         f"{mode:>4} | {result.runtime_ms:>10.2f} ms | "
@@ -285,7 +290,7 @@ def main() -> None:
     if args.max_runtime_ms is not None and args.max_runtime_ms <= 0:
         parser.error("--max-runtime-ms must be positive")
 
-    rows = run_grid(args.items, args.boxes, args.repeats, args.max_runtime_ms, args.seed)
+    rows = run_grid(args.items, args.boxes, args.repeats, args.max_runtime_ms, args.seed, args.output_dir)
     summary = summarize(rows)
     write_csv(args.output_dir / "raw_results.csv", rows)
     write_csv(args.output_dir / "summary.csv", summary)

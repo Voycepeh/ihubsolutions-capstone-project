@@ -250,13 +250,7 @@ The public API owns normalization and orchestration. Fast and Best propose packi
 
 > **Strategies propose. The engine validates.**
 
-For implementation details, use the dedicated Fast and Best guides below rather than the README.
-
-
-</details>
-
-<details>
-<summary><h2>Constraint validation: proving the solver respects our rules</h2></summary>
+### Constraint validation: proving the solver respects our rules
 
 A packing recommendation is only useful if it is **valid**. Fast and Best may search differently, but both must pass the **same independent final validator** before their results are accepted. This is separate from benchmarking carton count and execution time: a faster or smaller packing is not a win if it violates a rule.
 
@@ -276,7 +270,13 @@ A packing recommendation is only useful if it is **valid**. Fast and Best may se
 
 Only **validated** recommendations should be included when comparing Fast and Best on cartons used, utilization, or latency. This section describes the verification criteria and executable demonstration; it does **not** claim that every case above has already passed automated tests.
 
+
+For implementation details, use the dedicated Fast and Best guides below rather than the README.
+
+
 </details>
+
+
 
 <details>
 <summary><h2>Fast vs Best: Execution Time</h2></summary>

@@ -22,14 +22,14 @@ Fast does not use OR-Tools. It is deterministic heuristic search built from the 
 
 ## What Fast actually does
 
-Fast builds one greedy candidate. It does not enumerate alternative carton combinations:
+Fast builds one greedy candidate, then makes a tightly bounded attempt to improve carton count:
 
 \`\`\`python
 baseline = self._build_candidate(items, boxes, config)
 return baseline
 \`\`\`
 
-Fast places larger items first, preferring already-open cartons. If necessary, it opens the smallest feasible carton. This keeps Fast latency-focused, but it may use more cartons than the previous version. Best starts from this baseline and searches for improvements.
+Fast places larger items first, preferring already-open cartons. If necessary, it opens the smallest feasible carton. It then tries at most 5, 3, 2, or 1 feasible carton combinations for orders of 1–6, 7–20, 21–50, or 51+ items respectively, stopping after approximately 100 ms of improvement work. The baseline is always the fallback. This is a soft budget: an individual placement check cannot be interrupted. Best starts from Fast and performs further exact search.
 
 ## Greedy packing
 
@@ -159,7 +159,7 @@ The key implementation difference is small:
 | --- | --- |
 | Uses `feasible_placements()` and scoring | Uses CP-SAT for fixed-carton feasibility |
 | Commits to heuristic placements | Solver can search alternative XYZ arrangements |
-| Single greedy packing pass | Enumerates candidates until proof or timeout |
+| Bounded greedy improvement | Enumerates candidates until proof or timeout |
 | Does not prove optimality | Can prove the selected carton objective |
 | No OR-Tools dependency | Uses local OR-Tools CP-SAT |
 | Used as Best's fallback | Starts from the Fast result |
@@ -172,7 +172,7 @@ Best can repair greedy carton-choice or geometry traps that Fast cannot.
 
 **A locally good placement can block a better later arrangement.** Fast commits as it progresses and does not backtrack through every possible XYZ arrangement.
 
-**Fast does not search alternative carton combinations.** Best is responsible for attempting carton-count improvements.
+**Fast only attempts a small number of alternative carton combinations.** Best performs further exact carton-count optimization.
 
 **Do not duplicate placement rules in Fast.** Rotation, collision, boundary, fill, and weight feasibility belong in the shared placement and rule layers.
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import sys
 from collections import Counter
+from math import ceil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -32,8 +33,8 @@ def inspect(item_count: int, box_count: int, seed: int, trace: bool) -> None:
     total_weight = sum(item["Weight"] * item["Quantity"] for item in order["Items"])
     largest = max(boxes, key=lambda box: box["Length"] * box["Width"] * box["Height"])
     usable_largest_volume = largest["Length"] * largest["Width"] * (largest["Height"] - 6)
-    volume_lower_bound = -(-total_volume // (usable_largest_volume * 0.70))
-    weight_lower_bound = -(-total_weight // largest["MaxWeight"])
+    volume_lower_bound = ceil(total_volume / (usable_largest_volume * 0.70))
+    weight_lower_bound = ceil(total_weight / largest["MaxWeight"])
 
     print(f"\n{item_count} items | {box_count} carton types | seed={seed}")
     print(
@@ -49,7 +50,7 @@ def inspect(item_count: int, box_count: int, seed: int, trace: bool) -> None:
     print("Carton sequence (code:items:fill%):")
     print(
         "  " + ", ".join(
-            f"{box.box_code}:{len(box.placements)}:{metric.utilization_pct:.1f}"
+            f"{box.box_code}:{len(box.placements)}:{metric.usable_utilization_pct:.1f}"
             for box, metric in zip(result.packed_boxes, result.metrics.boxes)
         )
     )

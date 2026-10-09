@@ -242,6 +242,43 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
         figure.savefig(output_dir / f"solver_scaling_{mode}.png", dpi=160)
         plt.close(figure)
 
+    # Estimated breakdown of Best: its Fast incumbent plus subsequent search.
+    # Paired calls are measured independently, so the difference is approximate.
+    paired = defaultdict(dict)
+    for row in raw_rows:
+        key = (int(row["items"]), int(row["box_types"]), int(row["repeat"]))
+        paired[key][row["mode"]] = float(row["runtime_ms"]) / 1000
+    fast_medians = []
+    extra_medians = []
+    for item in item_counts:
+        samples = [modes for (count, boxes, _), modes in paired.items()
+                   if count == item and boxes == comparison_box_count
+                   and "fast" in modes and "best" in modes]
+        if not samples:
+            raise ValueError(f"No paired Fast/Best samples for {item} items")
+        fast_medians.append(statistics.median(sample["fast"] for sample in samples))
+        extra_medians.append(statistics.median(
+            sample["best"] - sample["fast"] for sample in samples
+        ))
+    figure, axis = plt.subplots(figsize=(12, 6))
+    x_positions = list(range(len(item_counts)))
+    axis.bar(x_positions, fast_medians, label="Fast baseline (separate call)")
+    axis.bar(x_positions, extra_medians, bottom=fast_medians,
+             label="Additional Best time (estimated)")
+    axis.set_xticks(x_positions, labels=item_counts)
+    axis.set_xlabel("Items in one order")
+    axis.set_ylabel("Runtime (seconds)")
+    axis.set_title(f"Estimated Best runtime breakdown ({comparison_box_count} box types)")
+    axis.legend()
+    axis.grid(axis="y", alpha=0.2)
+    axis.set_axisbelow(True)
+    figure.text(0.5, 0.01,
+                "Paired independent calls: difference is an estimate, not internal stage timing.",
+                ha="center", fontsize=9)
+    figure.tight_layout(rect=(0, 0.04, 1, 1))
+    figure.savefig(output_dir / "solver_scaling_best_breakdown.png", dpi=160)
+    plt.close(figure)
+
     # Heatmaps make the interaction between item count and catalogue size clear.
     for mode in ("fast", "best"):
         mode_rows = [row for row in summary if row["mode"] == mode]

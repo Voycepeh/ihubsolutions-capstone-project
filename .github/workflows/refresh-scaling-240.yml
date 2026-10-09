@@ -42,5 +42,5 @@ jobs:
           git add README.md benchmark_results/solver_scaling_current/
           git commit -m "Refresh uncapped 240-run solver scaling evidence" || exit 0
           git fetch origin fix-carton-total-volume-objective
-          git rebase origin/fix-carton-total-volume-objective
+          git rebase -X theirs origin/fix-carton-total-volume-objective
           git push origin HEAD:fix-carton-total-volume-objective

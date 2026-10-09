@@ -11,12 +11,8 @@ The package takes an order and carton catalogue, applies configurable packing ru
 Open the notebook, run the setup cells, then change one value:
 
 ```python
-# Select any order and optionally show its 3D packing.
-selected_comparison = compare_order(
-    order_id=428,
-    show_items=True,
-    visualize=True,
-)
+# Compare one order against iHub.
+compare_order(428, visualize=True)
 ```
 
 The comparison shows the **number of cartons, selected carton types, fill limits, carton volume, runtime, and validation or proof status**. Set `visualize=True` to inspect the validated Best packing and its item positions.

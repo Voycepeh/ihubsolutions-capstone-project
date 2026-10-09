@@ -364,6 +364,7 @@ def solve_order(
         validation,
         bool(plan.metadata.get("optimality_proven", False)),
         str(plan.metadata.get("search_status", "heuristic")),
+        str(plan.metadata.get("best_result_source", "not_applicable")),
     )
     if visualize:
         from .visualize import visualize_result

@@ -23,3 +23,29 @@ jobs:
 
       - name: Run unit tests
         run: python -m pytest -q
+
+      - name: Verify nested benchmark inputs
+        run: |
+          python - <<'PY'
+          import importlib.util
+          spec = importlib.util.spec_from_file_location('benchmark', 'notebooks/benchmark_solver_scaling.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          for seed in (1, 20261008, 20261009):
+              previous = []
+              for count in (5, 10, 15, 20, 30, 50, 75, 100):
+                  items = module.generate_order(count, seed)['Items']
+                  assert items[:len(previous)] == previous
+                  previous = items
+          print('Nested input scenarios passed')
+          PY
+
+      - name: Run uncapped small solver benchmark
+        timeout-minutes: 8
+        run: python notebooks/benchmark_solver_scaling.py --items 5,10 --boxes 3 --repeats 1 --output-dir benchmark_results/smoke
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-smoke-results
+          path: benchmark_results/smoke/

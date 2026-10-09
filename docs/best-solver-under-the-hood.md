@@ -34,6 +34,8 @@ incumbent.metadata.update({
 max_count = len(incumbent.packed_boxes)
 ```
 
+By default, `solve_order(..., mode="best")` uses `max_runtime_ms=5000`: **5 seconds for Best's additional exact search**, starting after Fast finishes. The caller can override this budget; `None` disables the search deadline. It is not a hard cap on total API wall-clock time.
+
 It then tries carton combinations starting from one carton up to the number already used by Fast.
 
 The carton objective is handled by the order in which our Python code tests combinations:
@@ -242,7 +244,7 @@ The integration treats CP-SAT outcomes simply:
 | Infeasible | Try the next carton combination |
 | Unknown or time exhausted | Return the Fast fallback |
 
-A Best timeout therefore does **not** mean packing failed. It means exact search did not finish within the configured budget.
+A Best timeout therefore does **not** mean packing failed. When the 5-second budget expires without an exact result, `best_result_source="fast_fallback"` and `optimality_proven=False` identify the returned Fast packing. It means exact search did not finish within the configured budget.
 
 ## Important warnings
 

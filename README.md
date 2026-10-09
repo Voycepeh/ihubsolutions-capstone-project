@@ -339,13 +339,13 @@ Each cell shows the median of three runs for that item count and carton catalogu
 | Items | Fast median (ms) | Best median (ms) | Fast cartons | Best cartons |
 | ---: | ---: | ---: | ---: | ---: |
 | 5 | 1.8 | 13.4 | 1 | 1 |
-| 10 | 9.0 | 54.7 | 1 | 1 |
+| 10 | 9 | 54.7 | 1 | 1 |
 | 15 | 20.4 | 118.2 | 1 | 1 |
 | 20 | 30.1 | 203.2 | 1 | 1 |
 | 30 | 89.7 | 461.8 | 1 | 1 |
-| 50 | 237.7 | 7400.0 | 17 | 2 |
-| 75 | 555.8 | 12360.0 | 2 | 2 |
-| 100 | 860.2 | 22030.0 | 34 | 3 |
+| 50 | 237.7 | 7,400 | 17 | 2 |
+| 75 | 555.8 | 12,360 | 2 | 2 |
+| 100 | 860.2 | 22,030 | 34 | 3 |
 
 **Interpretation:** Fast takes 860 ms for 100 items with 20 carton types, while Best takes 22,030 ms. Best proved carton-count optimality in all 120 of its runs. Fast is substantially quicker, but its greedy carton selection can be poor: with 20 types it used 17 versus 2 cartons at 50 items, and 34 versus 3 at 100 items. The next optimization should investigate those quality regressions without sacrificing Fast's low latency.
 

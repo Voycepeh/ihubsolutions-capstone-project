@@ -6,6 +6,7 @@ on:
     paths:
       - '.github/workflows/benchmark-best-30s.yml'
       - 'src/bin_packing_3d/strategies/best.py'
+      - 'notebooks/update_benchmark_readme.py'
   workflow_dispatch:
 
 permissions:

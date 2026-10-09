@@ -4,7 +4,7 @@ on:
   push:
     branches: [benchmark-best-5s-2000-20261009]
     paths:
-      - '.github/workflows/benchmark-best-5s.yml'
+      - '.github/workflows/benchmark-best-30s.yml'
   workflow_dispatch:
 
 permissions:

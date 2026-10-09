@@ -1,0 +1,36 @@
+name: Publish refreshed benchmark charts
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-benchmark-images.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - name: Retrieve verified full benchmark output
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p benchmark_results/solver_scaling_current
+          gh api repos/${{ github.repository }}/actions/artifacts/11607711940/zip > /tmp/benchmark.zip
+          unzip -o /tmp/benchmark.zip -d benchmark_results/solver_scaling_current
+          test -s benchmark_results/solver_scaling_current/summary.csv
+          test -s benchmark_results/solver_scaling_current/solver_scaling_fast_heatmap.png
+          test -s benchmark_results/solver_scaling_current/solver_scaling_best_heatmap.png
+      - name: Commit benchmark images and data
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add benchmark_results/solver_scaling_current/
+          if ! git diff --cached --quiet; then
+            git commit -m 'Add refreshed 240-run benchmark images and data'
+            git push
+          fi

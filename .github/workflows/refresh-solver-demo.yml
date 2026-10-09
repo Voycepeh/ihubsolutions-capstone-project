@@ -7,6 +7,7 @@ on:
     paths:
       - '.github/workflows/refresh-solver-demo.yml'
       - 'notebooks/benchmark_solver_modes.py'
+      - 'notebooks/plot_solver_demo_comparison.py'
   workflow_dispatch:
 
 permissions:
@@ -40,16 +41,20 @@ jobs:
           assert all(int(float(r["best_cartons"])) <= int(float(r["fast_cartons"])) for r in rows)
           print("Verified", len(rows), "orders; Best never uses more cartons than Fast")
           PY
+      - name: Render README comparison chart
+        run: python -m pip install numpy matplotlib && python notebooks/plot_solver_demo_comparison.py notebooks/artifacts/benchmark_2000_best_vs_ihub.csv benchmark_results/solver_demo/fast_best_ihub_comparison.svg
       - name: Upload benchmark artifact
         uses: actions/upload-artifact@v4
         with:
           name: refreshed-solver-demo-benchmark
-          path: notebooks/artifacts/benchmark_2000_best_vs_ihub.csv
+          path: |
+            notebooks/artifacts/benchmark_2000_best_vs_ihub.csv
+            benchmark_results/solver_demo/fast_best_ihub_comparison.svg
       - name: Commit refreshed benchmark to PR branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add notebooks/artifacts/benchmark_2000_best_vs_ihub.csv
+          git add notebooks/artifacts/benchmark_2000_best_vs_ihub.csv benchmark_results/solver_demo/fast_best_ihub_comparison.svg
           if ! git diff --cached --quiet; then
             git commit -m "Regenerate 2000-order Fast vs Best benchmark"
             git push

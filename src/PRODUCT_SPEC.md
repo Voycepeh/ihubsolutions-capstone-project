@@ -30,6 +30,9 @@ Validity always precedes optimization. Solvers should optimize `bins_number`: fe
 
 ## 2. Input and configuration
 
+The development dataset schemas and differences between the v1 and v2 carton catalogues are documented in [data/raw/README.md](../data/raw/README.md). This specification defines the solver's contract rather than duplicating the dataset reference.
+
+
 Each item requires `Code`, positive `Length`, `Width`, `Height` in the solver's canonical unit of millimetres (mm), positive unit `Weight` (kg), positive integer `Quantity`, and boolean/0-or-1 `VerticalRotation`; `UOM` is optional. Preserve supplied `OrderId` and `OrderNo`. Each catalogue carton requires `Code`, positive dimensions in mm, and positive `MaxWeight`; the catalogue is input, never hard-coded. `BinBuffer` values and returned XYZ coordinates also use mm; derived volumes use cubic millimetres (`mm^3`). This deliberately matches the raw iHub benchmark contract without a conversion step.
 
 The corresponding keyword defaults in the public `solve_order()` signature are:

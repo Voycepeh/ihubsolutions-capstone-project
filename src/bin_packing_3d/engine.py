@@ -231,7 +231,7 @@ def solve_order(
     high_item_count_max_fill_pct: float = 70,
     max_fill_pct: float = 100,
     bin_buffer: Mapping[str, object] | Orientation = Orientation(0, 0, 6),
-    max_runtime_ms: float = 900,
+    max_runtime_ms: float | None = 900,
     deterministic: bool = True,
     strategy: str | None = None,
     dimension_unit: DimensionUnit = "mm",
@@ -262,7 +262,7 @@ def solve_order(
         bin_buffer: Clearance subtracted from carton length, width, and height,
             in millimetres. Accepts an :class:`Orientation` or a mapping with
             ``length``, ``width``, and ``height`` keys.
-        max_runtime_ms: Search budget supplied to the selected strategy.
+        max_runtime_ms: Optional search budget supplied to the strategy; None disables the limit.
         deterministic: Whether the strategy must use deterministic search.
         strategy: Advanced extension hook selecting a registered custom
             strategy. When supplied, it takes precedence over ``mode``.

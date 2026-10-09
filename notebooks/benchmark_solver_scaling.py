@@ -1,11 +1,14 @@
 """Stress benchmark Fast vs Best across item counts and carton catalogue sizes.
 
-This benchmark generates deterministic synthetic orders so the two solver modes
-see exactly the same packing problem. It is intended to reveal the point where
+This benchmark generates deterministic, nested synthetic orders. For a given seed,
+all smaller item-count scenarios are exact prefixes of the largest order, and
+Fast and Best see exactly the same packing problem. It is intended to reveal the point where
 solver latency becomes impractical as item count, carton choice, or both grow.
 
 Example:
-    python notebooks/benchmark_solver_scaling.py --repeats 3 --max-runtime-ms 5000
+    python notebooks/benchmark_solver_scaling.py --repeats 3
+    # Optional explicit cap for exploratory runs:
+    python notebooks/benchmark_solver_scaling.py --max-runtime-ms 5000
 """
 from __future__ import annotations
 
@@ -59,9 +62,13 @@ def generate_order(item_count: int, seed: int) -> dict[str, Any]:
     for index in range(item_count):
         # Keep every item individually feasible while retaining enough size
         # variation to make placement decisions non-trivial.
-        length = rng.randint(25, 105)
-        width = rng.randint(20, 90)
-        height = rng.randint(15, 75)
+        # A single deterministic stream creates nested orders across item counts.
+        # Cycle through size classes to diversify geometry without changing earlier items.
+        size_classes = ((25, 45), (45, 75), (75, 105))
+        low, high = size_classes[index % len(size_classes)]
+        length = rng.randint(low, high)
+        width = rng.randint(max(20, low - 5), min(90, high))
+        height = rng.randint(max(15, low - 10), min(75, high))
         items.append(
             {
                 "Code": f"Item{index + 1:03d}",
@@ -84,8 +91,9 @@ def run_grid(
     item_counts: tuple[int, ...],
     box_counts: tuple[int, ...],
     repeats: int,
-    max_runtime_ms: float,
+    max_runtime_ms: float | None,
     seed: int,
+    output_dir: Path | None = None,
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for item_count in item_counts:
@@ -114,6 +122,10 @@ def run_grid(
                             "optimality_proven": result.optimality_proven,
                         }
                     )
+                    if output_dir is not None:
+                        # Persist every completed case: an uncapped exact search may
+                        # outlive the CI runner, but earlier measurements remain usable.
+                        write_csv(output_dir / "raw_results.csv", rows)
                     print(
                         f"{item_count:>3} items x {box_count:>2} boxes | "
                         f"{mode:>4} | {result.runtime_ms:>10.2f} ms | "
@@ -168,57 +180,62 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Direct Fast vs Best comparison using the full generated carton catalogue.
+    # Side-by-side bar charts keep Fast and Best directly comparable.
+    # Both panels share the same linear y-axis; each bar shows the median
+    # of all repeats for the largest available box catalogue.
     comparison_box_count = max(row["box_types"] for row in summary)
-    figure, axis = plt.subplots(figsize=(10, 6))
-    for mode in ("fast", "best"):
-        selected = sorted(
-            (
-                row
-                for row in summary
-                if row["mode"] == mode and row["box_types"] == comparison_box_count
-            ),
-            key=lambda row: row["items"],
-        )
-        axis.plot(
-            [row["items"] for row in selected],
-            [row["median_runtime_ms"] / 1000 for row in selected],
-            marker="o",
-            linewidth=2,
-            label=mode.title(),
-        )
-    axis.set_xlabel("Items in one order")
-    axis.set_ylabel("Median end-to-end latency (seconds)")
-    axis.set_title(
-        f"Fast vs Best solver latency ({comparison_box_count} available box types)"
+    item_counts = sorted({row["items"] for row in summary})
+    figure, axes = plt.subplots(1, 2, figsize=(15, 6), sharey=True)
+    for axis, mode in zip(axes, ("fast", "best")):
+        lookup = {
+            row["items"]: row["median_runtime_ms"] / 1000
+            for row in summary
+            if row["mode"] == mode and row["box_types"] == comparison_box_count
+        }
+        values = [lookup[item] for item in item_counts]
+        bars = axis.bar(range(len(item_counts)), values, width=0.65)
+        axis.bar_label(bars, fmt="%.2f", padding=3, fontsize=8)
+        axis.set_xticks(range(len(item_counts)), labels=item_counts)
+        axis.set_xlabel("Items in one order")
+        axis.set_title(f"{mode.title()} mode")
+        axis.grid(axis="y", alpha=0.2)
+        axis.set_axisbelow(True)
+    axes[0].set_ylabel("Median solver execution latency (seconds)")
+    figure.suptitle(
+        f"Solver latency comparison ({comparison_box_count} available box types)"
     )
-    axis.grid(True, alpha=0.25)
-    axis.legend()
     figure.tight_layout()
     figure.savefig(output_dir / "solver_scaling_fast_vs_best.png", dpi=160)
     plt.close(figure)
 
-    # Curves: one line per catalogue size, Fast and Best in separate figures.
+    # Grouped bar charts compare catalogue sizes within each solver mode.
+    # Use a log scale for these detail charts because the full range spans
+    # milliseconds through minutes.
     for mode in ("fast", "best"):
-        figure, axis = plt.subplots(figsize=(10, 6))
+        figure, axis = plt.subplots(figsize=(12, 6))
         mode_rows = [row for row in summary if row["mode"] == mode]
-        for box_count in sorted({row["box_types"] for row in mode_rows}):
-            selected = sorted(
-                (row for row in mode_rows if row["box_types"] == box_count),
-                key=lambda row: row["items"],
-            )
-            axis.plot(
-                [row["items"] for row in selected],
-                [row["median_runtime_ms"] for row in selected],
-                marker="o",
-                label=f"{box_count} box types",
-            )
+        box_counts = sorted({row["box_types"] for row in mode_rows})
+        lookup = {
+            (row["items"], row["box_types"]): row["median_runtime_ms"]
+            for row in mode_rows
+        }
+        group_width = 0.82
+        width = group_width / len(box_counts)
+        for index, box_count in enumerate(box_counts):
+            positions = [
+                item_index - group_width / 2 + (index + 0.5) * width
+                for item_index in range(len(item_counts))
+            ]
+            values = [lookup[(item, box_count)] for item in item_counts]
+            axis.bar(positions, values, width=width, label=f"{box_count} box types")
         axis.set_yscale("log")
+        axis.set_xticks(range(len(item_counts)), labels=item_counts)
         axis.set_xlabel("Items in one order")
-        axis.set_ylabel("Median latency (ms, log scale)")
-        axis.set_title(f"{mode.title()} solver scaling")
-        axis.grid(True, alpha=0.25)
-        axis.legend()
+        axis.set_ylabel("Median solver latency (ms, log scale)")
+        axis.set_title(f"{mode.title()} solver scaling by box catalogue size")
+        axis.grid(axis="y", alpha=0.2)
+        axis.set_axisbelow(True)
+        axis.legend(ncol=len(box_counts), loc="upper left")
         figure.tight_layout()
         figure.savefig(output_dir / f"solver_scaling_{mode}.png", dpi=160)
         plt.close(figure)
@@ -263,8 +280,8 @@ def main() -> None:
     parser.add_argument(
         "--max-runtime-ms",
         type=float,
-        default=5000,
-        help="Per-solver search budget. Best may return its Fast fallback when this is reached.",
+        default=None,
+        help="Optional search budget in milliseconds; omitted means no time limit (exact search can be extremely slow).",
     )
     parser.add_argument(
         "--output-dir",
@@ -275,10 +292,10 @@ def main() -> None:
 
     if args.repeats <= 0:
         parser.error("--repeats must be positive")
-    if args.max_runtime_ms <= 0:
+    if args.max_runtime_ms is not None and args.max_runtime_ms <= 0:
         parser.error("--max-runtime-ms must be positive")
 
-    rows = run_grid(args.items, args.boxes, args.repeats, args.max_runtime_ms, args.seed)
+    rows = run_grid(args.items, args.boxes, args.repeats, args.max_runtime_ms, args.seed, args.output_dir)
     summary = summarize(rows)
     write_csv(args.output_dir / "raw_results.csv", rows)
     write_csv(args.output_dir / "summary.csv", summary)

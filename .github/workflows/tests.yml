@@ -23,3 +23,71 @@ jobs:
 
       - name: Run unit tests
         run: python -m pytest -q
+
+      - name: Verify nested benchmark inputs
+        run: |
+          python - <<'PY'
+          import importlib.util
+          spec = importlib.util.spec_from_file_location('benchmark', 'notebooks/benchmark_solver_scaling.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          for seed in (1, 20261008, 20261009):
+              previous = []
+              for count in (5, 10, 15, 20, 30, 50, 75, 100):
+                  items = module.generate_order(count, seed)['Items']
+                  assert items[:len(previous)] == previous
+                  previous = items
+          print('Nested input scenarios passed')
+          PY
+
+      - name: Run uncapped small solver benchmark
+        timeout-minutes: 8
+        run: python notebooks/benchmark_solver_scaling.py --items 5,10 --boxes 3 --repeats 1 --output-dir benchmark_results/smoke
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: benchmark-smoke-results
+          path: benchmark_results/smoke/
+
+  regenerate-benchmark-charts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements.txt
+      - name: Download completed 240-run benchmark results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p benchmark_results/full
+          gh api repos/${{ github.repository }}/actions/artifacts/11591919183/zip > /tmp/full-benchmark.zip
+          unzip -o /tmp/full-benchmark.zip -d benchmark_results/full
+          test -s benchmark_results/full/summary.csv
+      - name: Regenerate charts from existing summary
+        run: |
+          python - <<'PY'
+          import csv
+          import importlib.util
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location("benchmark", "notebooks/benchmark_solver_scaling.py")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          directory = Path("benchmark_results/full")
+          with (directory / "summary.csv").open(newline="", encoding="utf-8") as source:
+              rows = list(csv.DictReader(source))
+          for row in rows:
+              for key in ("items", "box_types"):
+                  row[key] = int(row[key])
+              for key in ("median_runtime_ms", "max_runtime_ms"):
+                  row[key] = float(row[key])
+          module.plot_results(rows, directory)
+          print("Regenerated charts using", len(rows), "existing summary rows")
+          PY
+      - name: Upload refreshed benchmark charts and data
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-refreshed-charts
+          path: benchmark_results/full/

@@ -29,6 +29,7 @@ incumbent = FastFitSolver().solve(items, boxes, config)
 incumbent.metadata.update({
     "optimality_proven": False,
     "search_status": "time_limit",
+    "best_result_source": "fast_fallback",
 })
 max_count = len(incumbent.packed_boxes)
 ```
@@ -42,12 +43,13 @@ for carton_count in range(1, max_count + 1):
     choices = sorted(
         combinations_with_replacement(boxes, carton_count),
         key=lambda choice: (
-            max(box.external_volume for box in choice),
             sum(box.external_volume for box in choice),
             tuple(box.code for box in choice),
         ),
     )
 ```
+
+The priority is **fewest cartons, then lowest total external carton volume**. For example, 25 L + 5 L beats 20 L + 15 L at the same carton count. Equal counts and total volumes tie on the business objective; carton codes only make the iteration order deterministic.
 
 So CP-SAT is **not choosing the carton catalogue itself**.
 

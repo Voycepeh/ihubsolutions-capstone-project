@@ -22,14 +22,14 @@ Fast does not use OR-Tools. It is deterministic heuristic search built from the 
 
 ## What Fast actually does
 
-Fast builds one greedy candidate, then makes a tightly bounded attempt to improve carton count:
+Fast builds a greedy candidate, then makes a tightly bounded attempt to improve carton count. Among evaluated valid candidates, the comparison is **fewest cartons first, then lowest total external carton volume**:
 
 \`\`\`python
 baseline = self._build_candidate(items, boxes, config)
 return baseline
 \`\`\`
 
-Fast places larger items first, preferring already-open cartons. If necessary, it opens the smallest feasible carton. It then tries at most 3 feasible carton combinations regardless of order size, with no improvement-stage time limit. The baseline is always the fallback. Benchmark runs are uncapped so the measured cost of the three attempts is visible. Best starts from Fast and performs further exact search.
+Fast places larger items first, preferring already-open cartons. If necessary, it opens the smallest feasible carton. It then tries at most 3 feasible carton combinations regardless of order size, with no improvement-stage time limit. The baseline is always the fallback. Benchmark runs are uncapped so the measured cost of the three attempts is visible. Best starts from Fast and performs further exact search. Fast does not exhaustively explore same-count carton combinations; its three attempts are limited to fewer-carton choices.
 
 ## Greedy packing
 
@@ -177,3 +177,7 @@ Best can repair greedy carton-choice or geometry traps that Fast cannot.
 **Do not duplicate placement rules in Fast.** Rotation, collision, boundary, fill, and weight feasibility belong in the shared placement and rule layers.
 
 **Do not bypass the final validator.** The engine independently validates the completed `PackingPlan` before returning it.
+
+## Ranking valid packing plans
+
+For valid candidates, Fast compares `(carton_count, total_external_carton_volume)`. A two-carton solution using 25 L + 5 L (30 L total) outranks 20 L + 15 L (35 L total), even though its largest individual carton is bigger. Equal counts and equal totals tie. This ranking applies to candidates Fast actually evaluates; it does **not** mean Fast searches every same-count combination.

@@ -29,7 +29,7 @@ baseline = self._build_candidate(items, boxes, config)
 return baseline
 \`\`\`
 
-Fast places larger items first, preferring already-open cartons. If necessary, it opens the smallest feasible carton. It then tries at most 5, 3, 2, or 1 feasible carton combinations for orders of 1–6, 7–20, 21–50, or 51+ items respectively, stopping after approximately 100 ms of improvement work. The baseline is always the fallback. This is a soft budget: an individual placement check cannot be interrupted. Best starts from Fast and performs further exact search.
+Fast places larger items first, preferring already-open cartons. If necessary, it opens the smallest feasible carton. It then tries at most 3 feasible carton combinations regardless of order size, with no improvement-stage time limit. The baseline is always the fallback. Benchmark runs are uncapped so the measured cost of the three attempts is visible. Best starts from Fast and performs further exact search.
 
 ## Greedy packing
 

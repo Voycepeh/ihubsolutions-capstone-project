@@ -5,6 +5,7 @@ on:
     branches: [fix-carton-total-volume-objective]
     paths:
       - '.github/workflows/benchmark-best-30s.yml'
+      - 'src/bin_packing_3d/strategies/best.py'
   workflow_dispatch:
 
 permissions:

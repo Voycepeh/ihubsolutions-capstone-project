@@ -340,8 +340,8 @@ This chart focuses on **20 available box types**, across **all eight item counts
 | [Fast solver under the hood](docs/fast-solver-under-the-hood.md) | Fast heuristic, placement scoring and bounded carton search |
 | [Best solver under the hood](docs/best-solver-under-the-hood.md) | Best search and Google OR-Tools Constraint Programming Satisfiability integration |
 | [Product specification](src/PRODUCT_SPEC.md) | Detailed functional rules and API contract |
-| [Solver approach and literature](docs/solver-approach-and-literature.md) | Research and solver design rationale |
-| [Dataset specification](docs/dataset-specification.md) | Supplied development data and fields |
+| [Research and literature](docs/solver-approach-and-literature.md) | Academic references and rationale for the chosen approach |
+| [Development datasets](data/raw/README.md) | v1/v2 schemas, carton catalogues and packing parameters ([change log](data/raw/CHANGELOG.md)) |
 | [Solver Demo](notebooks/Solver%20Demo.ipynb) | Worked examples, Fast/Best/iHub comparisons, visualization, and the 2,000-order benchmark |
 | [Solver Guardrail Simulation](notebooks/Simulated%20Rule%20Proof.ipynb) | Executable Config + Items + Boxes scenarios showing the real solver skipping cartons, choosing fallbacks, or rejecting orders when guardrails apply |
 

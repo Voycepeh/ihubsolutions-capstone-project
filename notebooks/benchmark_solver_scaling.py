@@ -308,6 +308,7 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
 
         figure.tight_layout()
         figure.savefig(output_dir / f"solver_scaling_{mode}_heatmap.png", dpi=160)
+        figure.savefig(output_dir / f"solver_scaling_{mode}_heatmap.svg")
         plt.close(figure)
 
 

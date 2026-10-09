@@ -133,13 +133,13 @@ def print_summary(rows: list[dict[str, Any]]) -> None:
         f"{statistics.median(ihub_times):.3f}/{_p95(ihub_times):.3f} ms"
     )
     better = sum(
-        (row["best_cartons"], row["best_largest_carton_volume_mm3"], row["best_external_volume_mm3"])
-        < (row["fast_cartons"], row["fast_largest_carton_volume_mm3"], row["fast_external_volume_mm3"])
+        (row["best_cartons"], row["best_external_volume_mm3"])
+        < (row["fast_cartons"], row["fast_external_volume_mm3"])
         for row in rows
     )
     worse = sum(
-        (row["best_cartons"], row["best_largest_carton_volume_mm3"], row["best_external_volume_mm3"])
-        > (row["fast_cartons"], row["fast_largest_carton_volume_mm3"], row["fast_external_volume_mm3"])
+        (row["best_cartons"], row["best_external_volume_mm3"])
+        > (row["fast_cartons"], row["fast_external_volume_mm3"])
         for row in rows
     )
     print(f"Best objective vs Fast: improved {better}, tied {len(rows) - better - worse}, worse {worse}")
@@ -164,12 +164,10 @@ def print_summary(rows: list[dict[str, Any]]) -> None:
     for row in eligible:
         best_objective = (
             row["best_cartons"],
-            row["best_largest_carton_volume_mm3"],
             row["best_external_volume_mm3"],
         )
         ihub_objective = (
             row["ihub_cartons"],
-            row["ihub_largest_carton_volume_mm3"],
             row["ihub_external_volume_mm3"],
         )
         comparisons.append((best_objective > ihub_objective) - (best_objective < ihub_objective))

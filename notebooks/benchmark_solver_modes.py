@@ -48,7 +48,7 @@ def _p95(values: list[float]) -> float:
     return ordered[max(0, math.ceil(0.95 * len(ordered)) - 1)]
 
 
-def benchmark(records: list[dict[str, Any]], best_timeout_ms: float = 900) -> list[dict[str, Any]]:
+def benchmark(records: list[dict[str, Any]], best_timeout_ms: float = 5000) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for record in records:
         order, boxes, config = _inputs(record)
@@ -188,7 +188,7 @@ def main() -> None:
     )
     parser.add_argument("--limit", type=int, help="Benchmark only the first N records")
     parser.add_argument("--start", type=int, default=0, help="Starting record offset for parallel batches")
-    parser.add_argument("--best-timeout-ms", type=float, default=900, help="Best solver search budget in milliseconds")
+    parser.add_argument("--best-timeout-ms", type=float, default=5000, help="Best solver search budget in milliseconds")
     parser.add_argument("--csv", type=Path, help="Optionally write per-order results")
     args = parser.parse_args()
 

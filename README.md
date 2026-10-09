@@ -11,19 +11,15 @@ The package takes an order and carton catalogue, applies configurable packing ru
 Open the notebook, run the setup cells, then change one value:
 
 ```python
-# Choose any Order ID in the development dataset.
-ORDER_ID = 428
-SHOW_ITEMS = True
-SHOW_3D = False
-
+# Select any order and optionally show its 3D packing.
 selected_comparison = compare_order(
-    ORDER_ID,
-    show_items=SHOW_ITEMS,
-    visualize=SHOW_3D,
+    order_id=428,
+    show_items=True,
+    visualize=True,
 )
 ```
 
-The comparison shows the **number of cartons, selected carton types, fill limits, carton volume, runtime, and validation or proof status**. Set `SHOW_3D = True` to inspect the validated Best packing and its item positions.
+The comparison shows the **number of cartons, selected carton types, fill limits, carton volume, runtime, and validation or proof status**. Set `visualize=True` to inspect the validated Best packing and its item positions.
 
 The demo runs the solver **only for the order you select**. The completed [2,000-order benchmark CSV](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) is loaded separately for the overall scorecard, so opening the notebook does not rerun the entire benchmark. iHub's historical answer is a comparison baseline, never an input to the solver.
 

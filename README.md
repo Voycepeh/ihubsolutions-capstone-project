@@ -322,13 +322,7 @@ This makes Best a deliberate tradeoff: callers can give the optimizer more time 
 
 ### Solver execution time: Fast vs Best (9 October 2026)
 
-**Updated benchmark after remaining-order-aware Fast carton selection.** [Successful full benchmark run #37913140382](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37913140382) completed all **240 runs**: 8 item counts × 5 carton catalogue sizes × 2 modes × 3 repetitions, using the original `notebooks/benchmark_solver_scaling.py` script and uncapped search (`max_runtime_ms=None`). Results are synthetic scaling measurements, not production latency guarantees.
-
-#### Updated charts and source data
-
-The benchmark artifact contains the **new Fast and Best latency heatmaps**, Fast-versus-Best runtime distributions, a runtime breakdown, and the complete `raw_results.csv` and `summary.csv` files:
-
-**[View/download all refreshed benchmark charts and data](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37913140382/artifacts/11607711940)**
+The charts below show execution time across synthetic orders with different item counts and carton catalogue sizes.
 
 #### Fast execution time
 
@@ -342,26 +336,7 @@ The benchmark artifact contains the **new Fast and Best latency heatmaps**, Fast
 
 ![Fast and Best runtime breakdown](benchmark_results/solver_scaling_current/solver_scaling_best_breakdown.svg)
 
-#### Runtime comparison (20 carton types)
-
-| Items | Fast median (ms) | Best median (ms) | Fast cartons | Best cartons |
-| ---: | ---: | ---: | ---: | ---: |
-| 5 | 1.0 | 7.9 | 1 | 1 |
-| 10 | 1.4 | 29.8 | 1 | 1 |
-| 15 | 3.2 | 64.2 | 1 | 1 |
-| 20 | 15.9 | 121.3 | 1 | 1 |
-| 30 | 18.2 | 250.1 | 1 | 1 |
-| 50 | 33.0 | 4,492.4 | 2 | 2 |
-| 75 | 77.7 | 7,472.5 | 2 | 2 |
-| 100 | 138.7 | 13,519.5 | 3 | 3 |
-
-Values are medians of three repeat runs per scenario. Carton counts are also medians. **Best proved carton-count optimality in all 120 Best runs** according to the benchmark summary.
-
-**Conclusion:** In these seeded synthetic scenarios, Fast matched Best's median carton counts while running substantially faster. At 100 items with 20 carton types, Fast took **138.7 ms** versus **13,519.5 ms** for Best. Matching carton counts does **not** mean the recommendations are identical: Best also aims to choose smaller cartons and improve space use when carton counts tie. These results do not establish Fast's optimality on arbitrary orders.
-
-**Comparison scope:** The [2,000-order iHub scorecard](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) compares **carton counts only** and predates the latest Fast changes. It does not measure whether the chosen cartons are smaller or better utilized.
-
-**Reproduce:** `python notebooks/benchmark_solver_scaling.py --repeats 3`. The full [new artifact](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37913140382/artifacts/11607711940) contains all chart images and raw measurements.
+**Conclusion:** Fast matched Best's median carton counts in these synthetic scenarios while running substantially faster. With 100 items and 20 carton types, Fast took **138.7 ms** versus **13,519.5 ms** for Best, and both used a median of **3 cartons**. However, this benchmark measures carton count and execution time, **not the size of the cartons selected**. Best prioritises fewer cartons, then a smaller largest carton, then lower total external carton volume. We need carton-volume measurements to establish whether Fast achieves the same carton count by using oversized boxes. These synthetic results do not guarantee performance or optimality on other orders.
 
 </details>
 

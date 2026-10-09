@@ -1,4 +1,5 @@
 name: Diagnose Best Unlimited Two Orders
+# Push to this diagnostic branch triggers the focused test.
 on:
   push:
     branches: [diagnose-best-unlimited-382-1778]

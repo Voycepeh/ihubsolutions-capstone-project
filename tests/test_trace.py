@@ -59,7 +59,7 @@ def test_logs_explain_item_level_rejections_and_carton_assignments(capsys):
     assert "3D search decisions" in output
     assert "3D geometry:" in output
     assert "fill limit:" in output
-    assert "best-scoring new carton and 3D placement" in output
+    assert "remaining-order capacity estimate and valid 3D placement" in output
     assert "Final validated assignments" in output
     assert "A#1" in output and "carton-1 (Small)" in output
     assert "A#2" in output and "carton-2 (Small)" in output

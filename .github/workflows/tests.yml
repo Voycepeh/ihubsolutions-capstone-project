@@ -112,3 +112,23 @@ jobs:
         with:
           name: benchmark-50-vs-75-profiles
           path: benchmark_results/diagnostics_50_vs_75/
+
+  rerun-full-scaling-benchmark:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -r requirements.txt
+      - name: Run original 240-case scaling benchmark on proposed solver
+        run: python -u notebooks/benchmark_solver_scaling.py --repeats 3 --output-dir benchmark_results/proposed_full
+      - name: Upload new complete or partial benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-proposed-full-240
+          path: benchmark_results/proposed_full/
+          if-no-files-found: warn

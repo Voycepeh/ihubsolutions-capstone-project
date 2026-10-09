@@ -332,15 +332,15 @@ The benchmark artifact contains the **new Fast and Best latency heatmaps**, Fast
 
 #### Fast execution time
 
-![Fast execution-time heatmap](benchmark_results/solver_scaling_current/solver_scaling_fast_heatmap.png)
+![Fast execution-time heatmap](benchmark_results/solver_scaling_current/solver_scaling_fast_heatmap.svg)
 
 #### Best execution time
 
-![Best execution-time heatmap](benchmark_results/solver_scaling_current/solver_scaling_best_heatmap.png)
+![Best execution-time heatmap](benchmark_results/solver_scaling_current/solver_scaling_best_heatmap.svg)
 
 #### Fast baseline and additional Best runtime
 
-![Fast and Best runtime breakdown](benchmark_results/solver_scaling_current/solver_scaling_best_breakdown.png)
+![Fast and Best runtime breakdown](benchmark_results/solver_scaling_current/solver_scaling_best_breakdown.svg)
 
 #### Runtime comparison (20 carton types)
 

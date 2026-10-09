@@ -215,7 +215,7 @@ Box4 | PASSED screen; evaluated during 3D search
 Box8 | PASSED screen; evaluated during 3D search
 
 3D search decisions
-9#1  | Box4 | PLACED | best-scoring new carton and 3D placement
+9#1  | Box4 | PLACED | remaining-order capacity estimate and valid 3D placement
 30#1 | Box4 | PLACED | best-scoring feasible position
 
 Final decision
@@ -322,42 +322,36 @@ This makes Best a deliberate tradeoff: callers can give the optimizer more time 
 
 ### Solver execution time: Fast vs Best (9 October 2026)
 
-**Current benchmark, after the Fast greedy improvement change.** [Successful GitHub Actions run #37908700572](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37908700572) executed all **240 runs**: 8 item counts × 5 carton catalogue sizes × 2 modes × 3 repetitions. Search was uncapped (`max_runtime_ms=None`). These are deterministic synthetic stress scenarios, not production latency guarantees or the separate historical 2,000-order iHub comparison.
+**Updated benchmark after remaining-order-aware Fast carton selection.** [Successful full benchmark run #37913140382](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37913140382) completed all **240 runs**: 8 item counts × 5 carton catalogue sizes × 2 modes × 3 repetitions, using the original `notebooks/benchmark_solver_scaling.py` script and uncapped search (`max_runtime_ms=None`). Results are synthetic scaling measurements, not production latency guarantees.
 
-#### Fast execution time
+#### Updated charts and source data
 
-![Current Fast execution-time heatmap](benchmark_results/solver_scaling_current/solver_scaling_fast_heatmap.svg)
+The benchmark artifact contains the **new Fast and Best latency heatmaps**, Fast-versus-Best runtime distributions, a runtime breakdown, and the complete `raw_results.csv` and `summary.csv` files:
 
-#### Best execution time
+**[View/download all refreshed benchmark charts and data](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37913140382/artifacts/11607711940)**
 
-![Current Best execution-time heatmap](benchmark_results/solver_scaling_current/solver_scaling_best_heatmap.svg)
-
-Each cell shows the median of three runs for that item count and carton catalogue size. The two charts share logarithmic shading; all chart labels are in milliseconds (ms).
-
-#### Fast baseline and additional Best runtime (20 carton types)
-
-![Stacked chart of Fast baseline runtime and estimated additional Best runtime in milliseconds](benchmark_results/solver_scaling_current/solver_scaling_best_breakdown.svg)
-
-**Teal** is the separately measured Fast median. **Orange** is the estimated additional Best time, calculated as Best median minus Fast median. The full stacked bar equals Best's median runtime. This difference is an estimate rather than an instrumented measurement of Best's internal search stage. All values use milliseconds (ms), with thousands separators.
+The previously embedded heatmaps and runtime breakdown were removed here because they depicted the old algorithm. Use the charts in the linked artifact for this version.
 
 #### Runtime comparison (20 carton types)
 
 | Items | Fast median (ms) | Best median (ms) | Fast cartons | Best cartons |
 | ---: | ---: | ---: | ---: | ---: |
-| 5 | 1.8 | 13.4 | 1 | 1 |
-| 10 | 9 | 54.7 | 1 | 1 |
-| 15 | 20.4 | 118.2 | 1 | 1 |
-| 20 | 30.1 | 203.2 | 1 | 1 |
-| 30 | 89.7 | 461.8 | 1 | 1 |
-| 50 | 237.7 | 7,400 | 17 | 2 |
-| 75 | 555.8 | 12,360 | 2 | 2 |
-| 100 | 860.2 | 22,030 | 34 | 3 |
+| 5 | 1.0 | 7.9 | 1 | 1 |
+| 10 | 1.4 | 29.8 | 1 | 1 |
+| 15 | 3.2 | 64.2 | 1 | 1 |
+| 20 | 15.9 | 121.3 | 1 | 1 |
+| 30 | 18.2 | 250.1 | 1 | 1 |
+| 50 | 33.0 | 4,492.4 | 2 | 2 |
+| 75 | 77.7 | 7,472.5 | 2 | 2 |
+| 100 | 138.7 | 13,519.5 | 3 | 3 |
 
-**Interpretation:** Fast takes 860 ms for 100 items with 20 carton types, while Best takes 22,030 ms. Best proved carton-count optimality in all 120 of its runs. Fast is substantially quicker, but its greedy carton selection can be poor: with 20 types it used 17 versus 2 cartons at 50 items, and 34 versus 3 at 100 items. The next optimization should investigate those quality regressions without sacrificing Fast's low latency.
+Values are medians of three repeat runs per scenario. Carton counts are also medians. **Best proved carton-count optimality in all 120 Best runs** according to the benchmark summary.
 
-**Historical results:** The earlier [scaling benchmark](benchmark_results/solver_scaling/summary.csv), its charts, the old 50-vs-75 profiling investigation, and the saved [2,000-order iHub comparison](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) remain historical and should not be confused with these current-strategy measurements. This refreshed benchmark measures synthetic scaling only; it does not update the 2,000-order scorecard.
+**Interpretation:** With 20 carton types, the new remaining-order-aware Fast selection uses **2 cartons at 50 items** (previously 17) and **3 cartons at 100 items** (previously 34), matching Best's median carton counts in these scenarios. The new Fast median at 100 items is **138.7 ms**, versus **13,519.5 ms** for Best. This is evidence of a substantial improvement on these seeded synthetic cases; it does not establish optimality for Fast on arbitrary orders.
 
-**Reproduce and inspect:** [Benchmark script](notebooks/benchmark_solver_scaling.py) · [Full run and downloadable CSV/PNG artifacts](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37908700572/artifacts/11606067205). The source artifact contains `raw_results.csv`, `summary.csv`, and the full chart set.
+**Historical comparison:** The previous [full benchmark run #37908700572](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37908700572) used the older Fast carton selection. The saved [2,000-order iHub comparison](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) has **not** been rerun for this change and remains historical. Do not mix these results.
+
+**Reproduce:** `python notebooks/benchmark_solver_scaling.py --repeats 3`. The full [new artifact](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37913140382/artifacts/11607711940) contains all chart images and raw measurements.
 
 </details>
 

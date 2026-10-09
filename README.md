@@ -330,7 +330,17 @@ The benchmark artifact contains the **new Fast and Best latency heatmaps**, Fast
 
 **[View/download all refreshed benchmark charts and data](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37913140382/artifacts/11607711940)**
 
-The previously embedded heatmaps and runtime breakdown were removed here because they depicted the old algorithm. Use the charts in the linked artifact for this version.
+#### Fast execution time
+
+![Fast execution-time heatmap](benchmark_results/solver_scaling_current/solver_scaling_fast_heatmap.png)
+
+#### Best execution time
+
+![Best execution-time heatmap](benchmark_results/solver_scaling_current/solver_scaling_best_heatmap.png)
+
+#### Fast baseline and additional Best runtime
+
+![Fast and Best runtime breakdown](benchmark_results/solver_scaling_current/solver_scaling_best_breakdown.png)
 
 #### Runtime comparison (20 carton types)
 

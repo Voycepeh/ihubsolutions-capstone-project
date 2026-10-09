@@ -1,0 +1,35 @@
+name: Refresh solver scaling benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      repeats:
+        description: Number of repetitions per scenario
+        required: true
+        default: '3'
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install project and plotting dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . matplotlib
+      - name: Run current-strategy scaling benchmark
+        run: |
+          python notebooks/benchmark_solver_scaling.py \
+            --repeats "${{ inputs.repeats }}" \
+            --output-dir benchmark_results/solver_scaling_refresh
+      - name: Upload raw measurements and charts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: solver-scaling-greedy-fast
+          path: benchmark_results/solver_scaling_refresh/
+          if-no-files-found: warn

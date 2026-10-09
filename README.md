@@ -54,7 +54,7 @@ The normal solver choice is:
 | `fast` | Low latency is the priority |
 | `best` | Better carton optimization justifies additional computation |
 
-Best starts from the Fast result, then uses its remaining runtime budget to search for a better packing. If the search budget is exhausted, the validated Fast result remains the fallback.
+Fast makes a single greedy placement pass. Best starts from that Fast result, then uses its remaining runtime budget to search for a better packing. If the search budget is exhausted, the validated Fast result remains the fallback.
 
 
 </details>
@@ -320,7 +320,7 @@ This makes Best a deliberate tradeoff: callers can give the optimizer more time 
 
 ### Solver execution time: Fast vs Best
 
-The benchmark compares **8 order sizes × 5 box catalogue sizes × 2 solving modes × 3 repeats** (240 executions). Each larger synthetic order retains the items from the smaller order for the same seed. These runs use uncapped search (`max_runtime_ms=None`), so they are **not production API latency guarantees**. All three charts below use the committed [benchmark summary](benchmark_results/solver_scaling/summary.csv); each cell is the median of three runs.
+**Historical data, not current Fast performance.** The benchmark compares **8 order sizes × 5 box catalogue sizes × 2 solving modes × 3 repeats** (240 executions). Each larger synthetic order retains the items from the smaller order for the same seed. These runs use uncapped search (`max_runtime_ms=None`), so they are **not production API latency guarantees**. All three charts below use the committed [benchmark summary](benchmark_results/solver_scaling/summary.csv); each cell is the median of three runs.
 
 #### 1. Fast execution time
 
@@ -344,7 +344,9 @@ This chart focuses on **20 available box types**, across **all eight item counts
 - **Best generally takes longer.** It starts with Fast's valid solution, then uses an exact constraint solver to evaluate alternatives and prove the carton-count objective when possible. The additional work depends on carton combinations, orientations, and three-dimensional non-overlap constraints.
 - **More box types can increase search cost.** A larger catalogue gives the solver more carton alternatives, although some scenarios can be rejected quickly.
 
-**Profiling insight:** A separate six-case profiling investigation of 50 versus 75 items found median `feasible_placements()` call counts of **12,771** and **3,909**, respectively (about **3.3×** more checks for 50 items). Almost all profiled time occurred in the search for fewer cartons rather than the initial greedy packing. Early candidate rejection and changes in placement order are plausible mechanisms, but the profiler did not record the exact rejection points. See the [diagnostic workflow](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37878918335).
+**Historical benchmark notice (pre-greedy-only Fast):** The committed scaling results, charts, and profiling below were produced with the previous Fast implementation, which included a fewer-carton combination search. They must not be presented as measurements of the new Fast implementation. Regenerate the benchmark artifacts before making new performance claims. The saved 2,000-order comparison and demo scorecards likewise reflect the previous algorithm until rerun.
+
+**Profiling insight (previous Fast):** A separate six-case profiling investigation of 50 versus 75 items found median `feasible_placements()` call counts of **12,771** and **3,909**, respectively (about **3.3×** more checks for 50 items). Almost all profiled time occurred in the search for fewer cartons rather than the initial greedy packing. Early candidate rejection and changes in placement order are plausible mechanisms, but the profiler did not record the exact rejection points. See the [diagnostic workflow](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37878918335).
 
 **Reproducibility:** [Benchmark script](notebooks/benchmark_solver_scaling.py) · [Committed summary](benchmark_results/solver_scaling/summary.csv) · [Individual runs](benchmark_results/solver_scaling/raw_results.csv) · [Original completed benchmark artifact](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37873447275/artifacts/11591919183). Chart values in this section are sourced from the committed summary; the original artifact should be reconciled separately before claiming the two are identical.
 

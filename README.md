@@ -49,12 +49,14 @@ Only `order` and `boxes` are required. The remaining arguments have defaults.
 
 The normal solver choice is:
 
-| Mode | Use when |
-| --- | --- |
-| `fast` | Low latency is the priority |
-| `best` | Better carton optimization justifies additional computation |
+| Mode | Priority | How it works |
+| --- | --- | --- |
+| `fast` | Low latency | Greedy placement followed by up to **3 attempts** to find a better valid arrangement. Return the best valid Fast result. |
+| `best` | Fewer cartons | Complete Fast first and save its result as the baseline. Then use **Google OR-Tools CP-SAT** to search for a better valid three-dimensional packing. |
 
-Fast makes a single greedy placement pass. Best starts from that Fast result, then uses its remaining runtime budget to search for a better packing. If the search budget is exhausted, the validated Fast result remains the fallback.
+**Timeout and fallback:** Best's configurable timeout is an **additional optimization budget after Fast finishes**, not a limit on the Fast baseline. Keep the best independently validated result found so far. If Best finds no improvement before its timeout, return the Fast baseline. Best must never return more cartons than Fast for the same order and constraints.
+
+**Implementation note:** This table defines the intended solver behavior; existing code, examples and historical benchmarks may still reflect the earlier Fast implementation. The API currently exposes `max_runtime_ms`; align its runtime semantics with the additional Best search budget when implementing this change.
 
 
 </details>
@@ -131,7 +133,7 @@ The defaults reproduce the current project packing policy.
 | `high_item_count_max_fill_pct` | `70` | Maximum usable volume fill above the threshold |
 | `max_fill_pct` | `100` | Normal maximum usable volume fill |
 | `bin_buffer` | height `6` mm | Clearance removed from usable carton dimensions |
-| `max_runtime_ms` | `900` | Search budget |
+| `max_runtime_ms` | `900` | Intended additional Best search budget in milliseconds, starting after Fast completes; verify current implementation |
 | `deterministic` | `True` | Use deterministic solver behavior |
 | `logs` | `False` | Print packing decisions |
 | `visualize` | `False` | Display the validated 3D packing |
@@ -257,8 +259,8 @@ flowchart LR
     API --> N["Normalize inputs<br/>expand quantity<br/>apply rules"]
     N --> M{"Fast or Best"}
 
-    M -->|Fast| F["Fast<br/>heuristic search"]
-    M -->|Best| B["Best<br/>Fast fallback + configurable search"]
+    M -->|Fast| F["Fast<br/>greedy + up to 3 improvements"]
+    M -->|Best| B["Best<br/>complete Fast, then CP-SAT search"]
 
     F --> V["Independent validation"]
     B --> V
@@ -305,14 +307,14 @@ Best does more work because it starts with the Fast packing and then searches al
 
 ### Escape hatch: bounded Best search
 
-The public API lets callers bound how long Best is allowed to search using `max_runtime_ms`. Best always starts with a validated Fast packing, so the optimization search has a safe fallback. If the Best search reaches its configured time limit before finding or proving a better solution, the solver returns the validated Fast result rather than failing the order.
+The public API lets callers bound how long Best is allowed to search using `max_runtime_ms`. Best first completes Fast (greedy placement plus up to three improvement attempts), then starts its additional CP-SAT search budget from the validated Fast baseline. If the Best search reaches its configured time limit, return the best independently validated packing found so far; if there is no improvement, return the Fast baseline. The intended timeout applies to the additional Best search after Fast completes; implementation must be checked against this contract.
 
 ```python
 result = solve_order(
     order=order,
     boxes=boxes,
     mode="best",
-    max_runtime_ms=5_000,  # 5 second Best search budget
+    max_runtime_ms=5_000,  # intended: 5 seconds of additional Best search after Fast
 )
 ```
 

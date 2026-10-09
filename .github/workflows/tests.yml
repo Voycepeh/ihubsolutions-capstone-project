@@ -132,32 +132,3 @@ jobs:
           name: benchmark-proposed-full-240
           path: benchmark_results/proposed_full/
           if-no-files-found: warn
-
-  temporary-image-sync:
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      actions: read
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
-      - name: Copy new benchmark images to original image paths
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          mkdir -p benchmark_results/solver_scaling_current
-          gh api repos/${{ github.repository }}/actions/artifacts/11607711940/zip > /tmp/benchmark.zip
-          unzip -o /tmp/benchmark.zip -d /tmp/benchmark-images
-          for name in solver_scaling_fast_heatmap solver_scaling_best_heatmap solver_scaling_best_breakdown; do
-            test -s /tmp/benchmark-images/$name.png
-            cp /tmp/benchmark-images/$name.png benchmark_results/solver_scaling_current/$name.png
-          done
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add benchmark_results/solver_scaling_current/*.png
-          if ! git diff --cached --quiet; then
-            git commit -m 'Replace benchmark chart images with new results'
-            git push
-          fi

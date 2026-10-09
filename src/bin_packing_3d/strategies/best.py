@@ -54,7 +54,7 @@ class BestFitSolver:
         # Fast is the incumbent and fallback. Exact search only replaces it when
         # CP-SAT finds a better carton objective within the shared deadline.
         incumbent = FastFitSolver().solve(items, boxes, config)
-        incumbent.metadata.update({"optimality_proven": False, "search_status": "time_limit"})
+        incumbent.metadata.update({"optimality_proven": False, "search_status": "time_limit", "best_result_source": "fast_fallback"})
         max_count = len(incumbent.packed_boxes)
 
         # Carton selection stays outside CP-SAT. Enumerate combinations from
@@ -82,6 +82,7 @@ class BestFitSolver:
                         "optimality_proven": True,
                         "search_status": "optimal",
                         "carton_search": "exact_cp_sat",
+                        "best_result_source": "best_calculation",
                     })
                     return plan
 

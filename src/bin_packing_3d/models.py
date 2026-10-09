@@ -140,7 +140,7 @@ class PackingConfig:
     high_item_count_threshold: int = 6
     high_item_count_max_fill_pct: float = 70.0
     bin_buffer: Orientation = Orientation(0.0, 0.0, 6.0)
-    max_runtime_ms: float | None = 900.0
+    max_runtime_ms: float | None = 5000.0
     deterministic: bool = True
     trace_enabled: bool = False
 
@@ -192,6 +192,7 @@ class PackingResult:
     validation: ValidationResult
     optimality_proven: bool = False
     search_status: str = "heuristic"
+    best_result_source: str = "not_applicable"
 
     @property
     def placements(self) -> list[Placement]:
@@ -206,6 +207,7 @@ class PackingResult:
             f"Validation passed: {self.validation.valid}",
             f"Optimality proven: {self.optimality_proven}",
             f"Search status: {self.search_status}",
+            f"Best result source: {self.best_result_source}",
         ]
 
         for box in self.packed_boxes:

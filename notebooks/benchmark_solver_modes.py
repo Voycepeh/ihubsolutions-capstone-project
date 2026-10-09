@@ -48,7 +48,7 @@ def _p95(values: list[float]) -> float:
     return ordered[max(0, math.ceil(0.95 * len(ordered)) - 1)]
 
 
-def benchmark(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def benchmark(records: list[dict[str, Any]], best_timeout_ms: float = 5000) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for record in records:
         order, boxes, config = _inputs(record)
@@ -68,7 +68,7 @@ def benchmark(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "bin_buffer": config["bin_buffer"],
         }
         fast = solve_order(order, boxes, mode="fast", **solver_arguments)
-        best = solve_order(order, boxes, mode="best", **solver_arguments)
+        best = solve_order(order, boxes, mode="best", max_runtime_ms=best_timeout_ms, **solver_arguments)
         rows.append({
             "order_id": order["OrderId"],
             "physical_items": sum(item["Quantity"] for item in order["Items"]),
@@ -110,6 +110,7 @@ def benchmark(records: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "best_runtime_ms": best.runtime_ms,
             "best_optimality_proven": best.optimality_proven,
             "best_search_status": best.search_status,
+            "best_result_source": best.best_result_source,
         })
     return rows
 
@@ -187,13 +188,15 @@ def main() -> None:
         default=ROOT / "data" / "raw" / "data_samples_v2.json",
     )
     parser.add_argument("--limit", type=int, help="Benchmark only the first N records")
+    parser.add_argument("--start", type=int, default=0, help="Starting record offset for parallel batches")
+    parser.add_argument("--best-timeout-ms", type=float, default=5000, help="Best solver search budget in milliseconds")
     parser.add_argument("--csv", type=Path, help="Optionally write per-order results")
     args = parser.parse_args()
 
     records = json.loads(args.dataset.read_text(encoding="utf-8"))
     if args.limit is not None:
-        records = records[:args.limit]
-    rows = benchmark(records)
+        records = records[args.start:args.start + args.limit]
+    rows = benchmark(records, best_timeout_ms=args.best_timeout_ms)
     print_summary(rows)
     if args.csv:
         args.csv.parent.mkdir(parents=True, exist_ok=True)

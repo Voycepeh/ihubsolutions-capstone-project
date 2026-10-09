@@ -72,13 +72,19 @@ class FastFitSolver:
                                 placement.position.z,
                                 placement.position.y,
                                 placement.position.x,
+                                placement.orientation.height,
+                                placement.orientation.width,
+                                placement.orientation.length,
+                                packed_box.box_code,
+                                packed_box.instance_id,
+                                item.instance_id,
                                 packed_box,
                                 placement,
                             ))
                     if not options:
                         complete = False
                         break
-                    *_, selected_box, placement = min(options)
+                    *_, selected_box, placement = min(options, key=lambda entry: entry[:-2])
                     selected_box.placements.append(placement)
                 if complete:
                     candidate = PackingPlan([packed for packed, _ in opened if packed.placements])

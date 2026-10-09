@@ -180,57 +180,62 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Direct Fast vs Best comparison using the full generated carton catalogue.
+    # Side-by-side bar charts keep Fast and Best directly comparable.
+    # Both panels share the same linear y-axis; each bar shows the median
+    # of all repeats for the largest available box catalogue.
     comparison_box_count = max(row["box_types"] for row in summary)
-    figure, axis = plt.subplots(figsize=(10, 6))
-    for mode in ("fast", "best"):
-        selected = sorted(
-            (
-                row
-                for row in summary
-                if row["mode"] == mode and row["box_types"] == comparison_box_count
-            ),
-            key=lambda row: row["items"],
-        )
-        axis.plot(
-            [row["items"] for row in selected],
-            [row["median_runtime_ms"] / 1000 for row in selected],
-            marker="o",
-            linewidth=2,
-            label=mode.title(),
-        )
-    axis.set_xlabel("Items in one order")
-    axis.set_ylabel("Median solver execution latency (seconds)")
-    axis.set_title(
-        f"Fast vs Best solver latency ({comparison_box_count} available box types)"
+    item_counts = sorted({row["items"] for row in summary})
+    figure, axes = plt.subplots(1, 2, figsize=(15, 6), sharey=True)
+    for axis, mode in zip(axes, ("fast", "best")):
+        lookup = {
+            row["items"]: row["median_runtime_ms"] / 1000
+            for row in summary
+            if row["mode"] == mode and row["box_types"] == comparison_box_count
+        }
+        values = [lookup[item] for item in item_counts]
+        bars = axis.bar(range(len(item_counts)), values, width=0.65)
+        axis.bar_label(bars, fmt="%.2f", padding=3, fontsize=8)
+        axis.set_xticks(range(len(item_counts)), labels=item_counts)
+        axis.set_xlabel("Items in one order")
+        axis.set_title(f"{mode.title()} mode")
+        axis.grid(axis="y", alpha=0.2)
+        axis.set_axisbelow(True)
+    axes[0].set_ylabel("Median solver execution latency (seconds)")
+    figure.suptitle(
+        f"Solver latency comparison ({comparison_box_count} available box types)"
     )
-    axis.grid(True, alpha=0.25)
-    axis.legend()
     figure.tight_layout()
     figure.savefig(output_dir / "solver_scaling_fast_vs_best.png", dpi=160)
     plt.close(figure)
 
-    # Curves: one line per catalogue size, Fast and Best in separate figures.
+    # Grouped bar charts compare catalogue sizes within each solver mode.
+    # Use a log scale for these detail charts because the full range spans
+    # milliseconds through minutes.
     for mode in ("fast", "best"):
-        figure, axis = plt.subplots(figsize=(10, 6))
+        figure, axis = plt.subplots(figsize=(12, 6))
         mode_rows = [row for row in summary if row["mode"] == mode]
-        for box_count in sorted({row["box_types"] for row in mode_rows}):
-            selected = sorted(
-                (row for row in mode_rows if row["box_types"] == box_count),
-                key=lambda row: row["items"],
-            )
-            axis.plot(
-                [row["items"] for row in selected],
-                [row["median_runtime_ms"] for row in selected],
-                marker="o",
-                label=f"{box_count} box types",
-            )
+        box_counts = sorted({row["box_types"] for row in mode_rows})
+        lookup = {
+            (row["items"], row["box_types"]): row["median_runtime_ms"]
+            for row in mode_rows
+        }
+        group_width = 0.82
+        width = group_width / len(box_counts)
+        for index, box_count in enumerate(box_counts):
+            positions = [
+                item_index - group_width / 2 + (index + 0.5) * width
+                for item_index in range(len(item_counts))
+            ]
+            values = [lookup[(item, box_count)] for item in item_counts]
+            axis.bar(positions, values, width=width, label=f"{box_count} box types")
         axis.set_yscale("log")
+        axis.set_xticks(range(len(item_counts)), labels=item_counts)
         axis.set_xlabel("Items in one order")
-        axis.set_ylabel("Median latency (ms, log scale)")
-        axis.set_title(f"{mode.title()} solver scaling")
-        axis.grid(True, alpha=0.25)
-        axis.legend()
+        axis.set_ylabel("Median solver latency (ms, log scale)")
+        axis.set_title(f"{mode.title()} solver scaling by box catalogue size")
+        axis.grid(axis="y", alpha=0.2)
+        axis.set_axisbelow(True)
+        axis.legend(ncol=len(box_counts), loc="upper left")
         figure.tight_layout()
         figure.savefig(output_dir / f"solver_scaling_{mode}.png", dpi=160)
         plt.close(figure)

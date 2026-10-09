@@ -297,7 +297,28 @@ The benchmark covers **5, 10, 15, 20, 30, 50, 75, and 100 items**, **3, 5, 10, 1
 
 **Best runtime breakdown:** The benchmark plotting script also produces `solver_scaling_best_breakdown.png`, a stacked comparison of the standalone Fast runtime and the *estimated* additional time spent by Best. Because Fast and Best are measured as separate calls, the extra portion is calculated from paired-run differences; it is not direct instrumentation of Best's internal phases. The box plots remain the primary view for runtime variation. See the [chart regeneration workflow](.github/workflows/tests.yml) for the generated chart artifact.
 
-**Why 75 items can be faster than 50 (investigated):** A targeted six-run cProfile investigation using the same three seeds and 20 carton types confirmed the reversal is driven by the *fewer-cartons improvement search*, not by initial greedy placement. Both sizes finished using **2 cartons**. For 50 items, the median number of `feasible_placements()` calls was **12,771**, versus **3,909** for 75 items; median `placement_envelope_volume()` calls were **493,103** versus **115,741**. Initial greedy packing took roughly 0.09–0.10 profiled seconds at 50 items and 0.19–0.20 at 75 items; nearly all remaining profiled time was in `_search_fewer_cartons()` (approximately **29–32 seconds** versus **1.4–10.9 seconds**). This explains the measured runtime inversion: the 50-item cases explore much more placement work while attempting fewer-carton alternatives. The profiling does not yet identify the precise carton choices or rejection conditions responsible; profiling also adds overhead, so use the original benchmark for unprofiled wall times. See the [targeted diagnostic workflow](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37878918335) and its `benchmark-50-vs-75-profiles` artifact. The takeaway is that heuristic search effort depends on the packing paths explored, not just item count.\n\n**Interpretation:** Best takes longer because it starts with Fast and evaluates additional packing alternatives. For 100 items and 20 carton types, the median was approximately **84 seconds for Fast** versus **106 seconds for Best**. Latency does not increase monotonically with item count because the packing difficulty and search branches can change as items are added. Best reported optimal solutions in all three repeats of that largest scenario. Optimality is about the carton-count objective, not proof that Best is the fastest mode.
+### Why 75 items were faster than 50
+
+In the benchmark with **20 available box types**, packing 75 items was faster than packing 50 items. We investigated with six targeted profiling runs (three matching seeds for each item count).
+
+| Measurement (median of 3 runs) | 50 items | 75 items |
+| --- | ---: | ---: |
+| Original Fast runtime (unprofiled) | 11.28 s | 3.24 s |
+| Feasible-placement calls | 12,771 | 3,909 |
+| Placement-scoring calls | 493,103 | 115,741 |
+| Final cartons used | 2 | 2 |
+
+**How Fast works:** It builds an initial packing plan, then tests alternative combinations using fewer cartons. For each candidate, it attempts to place items one by one. If an item cannot fit, that candidate is rejected immediately without processing the remaining items.
+
+**Why the reversal is possible:** A 50-item candidate may successfully place many items before failing, requiring substantial placement work. A 75-item candidate could fail earlier and be rejected more cheaply. Adding items can also change the size-sorted placement order, creating a different search path.
+
+**What we confirmed:** The 50-item scenarios performed approximately **3.3× more feasible-placement calls**. Nearly all profiled execution time occurred in the *fewer-cartons improvement search*, not the initial greedy packing. **What is not yet proven:** We have not recorded the exact carton combinations and the item at which each failed, so early rejection and changed placement ordering remain plausible explanations, not confirmed individual causes.
+
+**Key takeaway:** More items do not necessarily mean longer execution time. The runtime of a heuristic 3D packing solver depends heavily on which alternatives it explores, not only the number of items. Worst-case exponential complexity does not imply a smooth exponential runtime curve on every order. Profiling introduces overhead, so use the original benchmark timings for runtime comparisons.
+
+Evidence: [targeted six-case profiling run](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37878918335) (artifact: `benchmark-50-vs-75-profiles`).
+
+**Interpretation:** Best takes longer because it starts with Fast and evaluates additional packing alternatives. For 100 items and 20 carton types, the median was approximately **84 seconds for Fast** versus **106 seconds for Best**. Latency does not increase monotonically with item count because the packing difficulty and search branches can change as items are added. Best reported optimal solutions in all three repeats of that largest scenario. Optimality is about the carton-count objective, not proof that Best is the fastest mode.
 
 These are **synthetic scaling results**, not production latency guarantees. The measured runtime covers solver execution, not full application request overhead. The benchmark records `cartons_used` for both modes so carton reduction can be assessed separately from latency. The box plots reveal the run-to-run spread that a median-only bar chart hides.
 

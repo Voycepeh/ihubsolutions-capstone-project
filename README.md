@@ -326,7 +326,11 @@ This makes Best a deliberate tradeoff: callers can give the optimizer more time 
 
 This chart is generated from the **same 2,000-order v2 benchmark CSV** used by the Solver Demo. Each bar compares the solver's recommendation with iHub's recorded result: first by **number of cartons**, then by **largest carton size**, then by **total external carton volume**. The comparison excludes iHub orders flagged for exceeding the recorded Box9 fill cap; these exceptions remain in the CSV for separate inspection. The iHub record does not include independently verifiable 3D placements.
 
-The chart is regenerated with the benchmark in GitHub Actions; until that workflow finishes and commits the SVG, use the [benchmark CSV](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) and [interactive demo](notebooks/Solver%20Demo.ipynb) rather than interpreting an old chart.
+**What the results show.** Of the **1,926 policy-compliant reference orders**, Fast produced a better recommendation in **17**, matched iHub in **1,572**, and was worse in **337**. Best improved that comparison to **59 better**, **1,700 equal**, and **167 worse**. The remaining **74 orders** were excluded from this particular ranking because the recorded iHub result was flagged as exceeding its Box9 fill cap; they remain in the full 2,000-order benchmark.
+
+**Conclusion:** Best gives a stronger carton recommendation than Fast on this development sample, but neither consistently beats iHub's recorded choice. The value of Best must be weighed against its additional execution time, shown in the latency charts below. The iHub baseline has no independently verified XYZ placements, so these are *carton-choice comparisons*, not proof that iHub's historical arrangements were physically valid. This is a development benchmark, not independent holdout validation.
+
+The [benchmark CSV](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) and [executed Solver Demo notebook](notebooks/Solver%20Demo.ipynb) contain the order-level evidence and preserved outputs. The chart is regenerated alongside the CSV by GitHub Actions.
 
 ### Solver execution time: Fast vs Best (9 October 2026)
 

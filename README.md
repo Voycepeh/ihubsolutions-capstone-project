@@ -238,8 +238,8 @@ flowchart LR
     API --> N["Normalize inputs<br/>expand quantity<br/>apply rules"]
     N --> M{"Fast or Best"}
 
-    M -->|Fast| F["Fast<br/>bounded heuristic"]
-    M -->|Best| B["Best<br/>Fast fallback + bounded search"]
+    M -->|Fast| F["Fast<br/>heuristic search"]
+    M -->|Best| B["Best<br/>Fast fallback + configurable search"]
 
     F --> V["Independent validation"]
     B --> V
@@ -276,19 +276,30 @@ result = solve_order(
 
 This makes Best a deliberate tradeoff: callers can give the optimizer more time when carton reduction matters, or keep the search tightly bounded when response time matters.
 
-### Fast vs Best latency
+### Fast vs Best latency: uncapped benchmark
 
-The direct comparison below uses the full **20 carton type** catalogue from the same benchmark. It shows the end-to-end latency tradeoff between the two public solver modes on identical synthetic orders.
+The comparison below uses **20 available carton types** and shows Fast and Best in two side-by-side bar charts with the same vertical scale. Each bar is the **median of three runs**. Both modes receive the same synthetic order and carton catalogue for each case.
 
-![Fast vs Best solver latency](benchmark_results/solver_scaling/solver_scaling_fast_vs_best.svg)
+![Fast versus Best solver latency, side-by-side bars](benchmark_results/solver_scaling/solver_scaling_fast_vs_best.svg)
 
-The scaling benchmark makes that cost visible. With a 5 second Best search budget, Best proved optimality through the 30-item cases in this synthetic grid. From 50 items onward, every Best run reached the search limit. At the largest tested case — **100 items × 20 carton types** — median end-to-end solver time was about **75 seconds**, showing that the surrounding candidate search can itself become expensive even when the exact-search budget is bounded.
+The benchmark covers **5, 10, 15, 20, 30, 50, 75, and 100 items**, **3, 5, 10, 15, and 20 available carton types**, **three repeats**, and both modes: **240 executions** in total. Each larger order retains all items from the smaller order for the same seed, with varied item dimensions, weights, and rotation settings. The benchmark passes `max_runtime_ms=None` so the solver search is **not capped**. This differs from the public API's default 900 ms search budget.
 
-![Best solver latency as problem size increases](benchmark_results/solver_scaling/solver_scaling_best.png)
+| Items (20 box types) | Fast median | Best median |
+| ---: | ---: | ---: |
+| 5 | 0.01 s | 0.02 s |
+| 10 | 0.06 s | 0.11 s |
+| 15 | 0.13 s | 0.24 s |
+| 20 | 0.22 s | 0.41 s |
+| 30 | 0.30 s | 0.73 s |
+| 50 | 11.28 s | 19.21 s |
+| 75 | 3.24 s | 16.40 s |
+| 100 | 83.81 s | 105.83 s |
 
-The benchmark varies **5–100 items per order** and **3–20 available carton types**, with three deterministic repeats per combination. The full [summary](benchmark_results/solver_scaling/summary.csv), [raw results](benchmark_results/solver_scaling/raw_results.csv), and [reusable benchmark script](notebooks/benchmark_solver_scaling.py) are retained in the repository.
+**Interpretation:** Best takes longer because it starts with Fast and evaluates additional packing alternatives. For 100 items and 20 carton types, the median was approximately **84 seconds for Fast** versus **106 seconds for Best**. Latency does not increase monotonically with item count because the packing difficulty and search branches can change as items are added. Best reported optimal solutions in all three repeats of that largest scenario. Optimality is about the carton-count objective, not proof that Best is the fastest mode.
 
+These are **synthetic scaling results**, not production latency guarantees. The measured runtime covers solver execution, not full application request overhead. The benchmark records `cartons_used` for both modes so carton reduction can be assessed separately from latency.
 
+**Reproducibility:** [Benchmark script](notebooks/benchmark_solver_scaling.py) · [Completed 240-run results and charts](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37873447275/artifacts/11591919183) · [Chart regeneration workflow](.github/workflows/tests.yml). Chart-only changes should reuse the completed CSV results rather than rerun the solver grid.
 
 </details>
 

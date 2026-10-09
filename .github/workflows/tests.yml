@@ -50,21 +50,44 @@ jobs:
           name: benchmark-smoke-results
           path: benchmark_results/smoke/
 
-  full-scaling-benchmark:
+  regenerate-benchmark-charts:
     runs-on: ubuntu-latest
-    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: python -m pip install -r requirements.txt
-      - name: Run complete uncapped solver scaling grid
-        run: python -u notebooks/benchmark_solver_scaling.py --output-dir benchmark_results/full
-      - name: Upload completed benchmark measurements
-        if: always()
+      - name: Download completed 240-run benchmark results
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p benchmark_results/full
+          gh api repos/${{ github.repository }}/actions/artifacts/11591919183/zip > /tmp/full-benchmark.zip
+          unzip -o /tmp/full-benchmark.zip -d benchmark_results/full
+          test -s benchmark_results/full/summary.csv
+      - name: Regenerate charts from existing summary
+        run: |
+          python - <<'PY'
+          import csv
+          import importlib.util
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location("benchmark", "notebooks/benchmark_solver_scaling.py")
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          directory = Path("benchmark_results/full")
+          with (directory / "summary.csv").open(newline="", encoding="utf-8") as source:
+              rows = list(csv.DictReader(source))
+          for row in rows:
+              for key in ("items", "box_types"):
+                  row[key] = int(row[key])
+              for key in ("median_runtime_ms", "max_runtime_ms"):
+                  row[key] = float(row[key])
+          module.plot_results(rows, directory)
+          print("Regenerated charts using", len(rows), "existing summary rows")
+          PY
+      - name: Upload refreshed benchmark charts and data
         uses: actions/upload-artifact@v4
         with:
-          name: benchmark-full-results
+          name: benchmark-refreshed-charts
           path: benchmark_results/full/
-          if-no-files-found: warn

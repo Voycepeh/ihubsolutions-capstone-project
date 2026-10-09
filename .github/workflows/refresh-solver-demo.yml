@@ -43,6 +43,20 @@ jobs:
           PY
       - name: Render README comparison chart
         run: python -m pip install numpy matplotlib && python notebooks/plot_solver_demo_comparison.py notebooks/artifacts/benchmark_2000_best_vs_ihub.csv benchmark_results/solver_demo/fast_best_ihub_comparison.svg
+      - name: Execute notebook and preserve its outputs
+        run: |
+          python -m pip install nbconvert nbclient ipykernel pandas
+          python - <<'PY'
+          from pathlib import Path
+          import nbformat
+          from nbclient import NotebookClient
+          path = Path("notebooks/Solver Demo.ipynb")
+          notebook = nbformat.read(path, as_version=4)
+          client = NotebookClient(notebook, timeout=1200, kernel_name="python3", resources={"metadata": {"path": str(Path.cwd() / "notebooks")}})
+          client.execute()
+          nbformat.write(notebook, path)
+          print("Saved executed outputs to", path)
+          PY
       - name: Upload benchmark artifact
         uses: actions/upload-artifact@v4
         with:
@@ -50,11 +64,12 @@ jobs:
           path: |
             notebooks/artifacts/benchmark_2000_best_vs_ihub.csv
             benchmark_results/solver_demo/fast_best_ihub_comparison.svg
+            notebooks/Solver Demo.ipynb
       - name: Commit refreshed benchmark to PR branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add notebooks/artifacts/benchmark_2000_best_vs_ihub.csv benchmark_results/solver_demo/fast_best_ihub_comparison.svg
+          git add notebooks/artifacts/benchmark_2000_best_vs_ihub.csv benchmark_results/solver_demo/fast_best_ihub_comparison.svg 'notebooks/Solver Demo.ipynb'
           if ! git diff --cached --quiet; then
             git commit -m "Regenerate 2000-order Fast vs Best benchmark"
             git fetch origin "${{ github.ref_name }}"

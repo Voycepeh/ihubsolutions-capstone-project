@@ -89,9 +89,9 @@ class FastFitSolver:
                     selected_box.placements.append(placement)
                 if complete:
                     candidate = PackingPlan([packed for packed, _ in opened if packed.placements])
-                    def score(plan: PackingPlan) -> tuple[int, float, float]:
+                    def score(plan: PackingPlan) -> tuple[int, float]:
                         volumes = [box_volume[packed.box_code] for packed in plan.packed_boxes]
-                        return (len(volumes), max(volumes, default=0), sum(volumes))
+                        return (len(volumes), sum(volumes))
                     if score(candidate) < score(best):
                         best = candidate
                         best.metadata.update({

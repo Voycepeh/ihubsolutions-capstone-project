@@ -284,18 +284,19 @@ The comparison below uses **20 available carton types** and shows Fast and Best 
 
 The benchmark covers **5, 10, 15, 20, 30, 50, 75, and 100 items**, **3, 5, 10, 15, and 20 available carton types**, **three repeats**, and both modes: **240 executions** in total. Each larger order retains all items from the smaller order for the same seed, with varied item dimensions, weights, and rotation settings. The benchmark passes `max_runtime_ms=None` so the solver search is **not capped**. This differs from the public API's default 900 ms search budget.
 
-| Items (20 box types) | Fast median | Best median |
-| ---: | ---: | ---: |
-| 5 | 0.01 s | 0.02 s |
-| 10 | 0.06 s | 0.11 s |
-| 15 | 0.13 s | 0.24 s |
-| 20 | 0.22 s | 0.41 s |
-| 30 | 0.30 s | 0.73 s |
-| 50 | 11.28 s | 19.21 s |
-| 75 | 3.24 s | 16.40 s |
-| 100 | 83.81 s | 105.83 s |
+### Runtime by order size and box catalogue size
 
-**Best runtime breakdown:** The benchmark plotting script also produces `solver_scaling_best_breakdown.png`, a stacked comparison of the standalone Fast runtime and the *estimated* additional time spent by Best. Because Fast and Best are measured as separate calls, the extra portion is calculated from paired-run differences; it is not direct instrumentation of Best's internal phases. The box plots remain the primary view for runtime variation. See the [chart regeneration workflow](.github/workflows/tests.yml) for the generated chart artifact.
+The two heatmaps show **median solver runtime (seconds)** across all benchmarked item counts and available box types. Read rows as **items per order** and columns as **box types available**. Compare the same cell between Fast and Best to see the runtime trade-off.
+
+![Fast runtime heatmap across item counts and box catalogue sizes](benchmark_results/solver_scaling/solver_scaling_fast_heatmap.png)
+
+![Best runtime heatmap across item counts and box catalogue sizes](benchmark_results/solver_scaling/solver_scaling_best_heatmap.png)
+
+### Fast baseline and additional Best search time
+
+![Stacked Fast baseline and estimated additional Best runtime for 50, 75 and 100 items](benchmark_results/solver_scaling/solver_scaling_best_breakdown.svg)
+
+The stacked comparison highlights three larger scenarios with **20 box types**. The teal portion is Fast's median runtime; the orange portion is the **estimated additional Best runtime**, calculated as Best median minus Fast median. This is **not a direct measurement** of the Fast phase inside Best. The [benchmark workflow](.github/workflows/tests.yml) also generates `solver_scaling_best_breakdown.png` for all eight item counts in its downloadable artifacts. The box plots above show variation across the three repeats.
 
 ### Why 75 items were faster than 50
 

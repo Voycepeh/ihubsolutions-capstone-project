@@ -231,7 +231,7 @@ def solve_order(
     high_item_count_max_fill_pct: float = 70,
     max_fill_pct: float = 100,
     bin_buffer: Mapping[str, object] | Orientation = Orientation(0, 0, 6),
-    max_runtime_ms: float | None = 900,
+    max_runtime_ms: float | None = 5000,
     deterministic: bool = True,
     strategy: str | None = None,
     dimension_unit: DimensionUnit = "mm",

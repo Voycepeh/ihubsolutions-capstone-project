@@ -7,10 +7,6 @@ on:
         description: Number of repetitions per scenario
         required: true
         default: '3'
-      max_runtime_ms:
-        description: Best search budget per order (milliseconds)
-        required: true
-        default: '5000'
 
 jobs:
   benchmark:
@@ -29,7 +25,6 @@ jobs:
         run: |
           python notebooks/benchmark_solver_scaling.py \
             --repeats "${{ inputs.repeats }}" \
-            --max-runtime-ms "${{ inputs.max_runtime_ms }}" \
             --output-dir benchmark_results/solver_scaling_refresh
       - name: Upload raw measurements and charts
         if: always()

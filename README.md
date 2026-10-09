@@ -346,14 +346,6 @@ The overall comparison chart and the tornado breakdown use the **same 2,000-orde
 
 **What the results show.** Across **2,000 orders**, **183 iHub references are flagged for exceeding the Box9 fill cap**, leaving **1,817** for the policy-screened comparison. Under the ranked objective (fewest cartons, then smaller single box or lower combined multi-box volume), **Fast: 18 better / 1,584 equal / 215 worse**; **Best: 67 better / 1,748 equal / 2 worse**.
 
-#### Carton matching KPIs
-
-| KPI | Fast | Best |
-| --- | ---: | ---: |
-| Same number of cartons | **97.7%** (1,775 / 1,817) | **99.8%** (1,813 / 1,817) |
-| Same or fewer cartons | **97.7%** (1,776 / 1,817) | **99.9%** (1,815 / 1,817) |
-| Exact carton-type combination | **87.2%** (1,584 / 1,817) | **95.5%** (1,736 / 1,817) |
-
 #### What drives improvements and losses
 
 ![Tornado chart of Fast and Best improvements and losses by first differing rule](benchmark_results/solver_demo/fast_best_ihub_tornado.svg)
@@ -367,7 +359,7 @@ The overall comparison chart and the tornado breakdown use the **same 2,000-orde
 | 3. Lower / higher total volume (multiple boxes each) | 0 | 4 | 3 | 0 |
 | **Total** | **18** | **215** | **67** | **2** |
 
-Of Best's **67 improvements**, **62 (92.5%)** come from selecting a smaller single box, **3 (4.5%)** from reducing total volume in multi-box orders, and **2 (3.0%)** from using fewer boxes. Both Best losses involve using more boxes. The KPI scorecard above measures box-count and exact-type agreement independently of these ranked outcomes.
+Of Best's **67 improvements**, **62 (92.5%)** come from selecting a smaller single box, **3 (4.5%)** from reducing total volume in multi-box orders, and **2 (3.0%)** from using fewer boxes. Both Best losses involve using more boxes. The breakdown shows which objective decides each non-equal outcome.
 
 Matching carton count does **not** necessarily mean choosing the same carton types or proving that iHub's historical arrangement was physically feasible.
 

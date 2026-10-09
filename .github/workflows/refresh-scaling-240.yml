@@ -1,6 +1,10 @@
 name: Refresh uncapped 240-run scaling benchmark
 
 on:
+  push:
+    branches: [fix-carton-total-volume-objective]
+    paths:
+      - '.github/workflows/refresh-scaling-240.yml'
   workflow_dispatch:
 
 permissions:

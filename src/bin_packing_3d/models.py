@@ -192,6 +192,7 @@ class PackingResult:
     validation: ValidationResult
     optimality_proven: bool = False
     search_status: str = "heuristic"
+    best_result_source: str = "not_applicable"
 
     @property
     def placements(self) -> list[Placement]:
@@ -206,6 +207,7 @@ class PackingResult:
             f"Validation passed: {self.validation.valid}",
             f"Optimality proven: {self.optimality_proven}",
             f"Search status: {self.search_status}",
+            f"Best result source: {self.best_result_source}",
         ]
 
         for box in self.packed_boxes:

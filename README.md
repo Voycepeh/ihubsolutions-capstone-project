@@ -276,11 +276,11 @@ result = solve_order(
 
 This makes Best a deliberate tradeoff: callers can give the optimizer more time when carton reduction matters, or keep the search tightly bounded when response time matters.
 
-### Fast vs Best latency: uncapped benchmark
+### Fast vs Best latency distributions: uncapped benchmark
 
-The comparison below uses **20 available carton types** and shows Fast and Best in two side-by-side bar charts with the same vertical scale. Each bar is the **median of three runs**. Both modes receive the same synthetic order and carton catalogue for each case.
+The comparison below uses **20 available carton types** and shows Fast and Best in two side-by-side **box plots** with the same vertical scale. Each box shows the distribution of **three runs**, including the median, quartiles, and the individual measurements. Both modes receive the same synthetic order and carton catalogue for each case.
 
-![Fast versus Best solver latency, side-by-side bars](benchmark_results/solver_scaling/solver_scaling_fast_vs_best.svg)
+![Fast versus Best solver latency, side-by-side box plots](benchmark_results/solver_scaling/solver_scaling_fast_vs_best.svg)
 
 The benchmark covers **5, 10, 15, 20, 30, 50, 75, and 100 items**, **3, 5, 10, 15, and 20 available carton types**, **three repeats**, and both modes: **240 executions** in total. Each larger order retains all items from the smaller order for the same seed, with varied item dimensions, weights, and rotation settings. The benchmark passes `max_runtime_ms=None` so the solver search is **not capped**. This differs from the public API's default 900 ms search budget.
 
@@ -295,9 +295,9 @@ The benchmark covers **5, 10, 15, 20, 30, 50, 75, and 100 items**, **3, 5, 10, 1
 | 75 | 3.24 s | 16.40 s |
 | 100 | 83.81 s | 105.83 s |
 
-**Interpretation:** Best takes longer because it starts with Fast and evaluates additional packing alternatives. For 100 items and 20 carton types, the median was approximately **84 seconds for Fast** versus **106 seconds for Best**. Latency does not increase monotonically with item count because the packing difficulty and search branches can change as items are added. Best reported optimal solutions in all three repeats of that largest scenario. Optimality is about the carton-count objective, not proof that Best is the fastest mode.
+**Why 75 items can be faster than 50:** For Fast with 20 box types, all three 75-item measurements (0.60, 3.24, 4.04 seconds) were below all three 50-item measurements (10.35, 11.28, 11.65 seconds). The difference is therefore not caused by a single outlier. Although the larger order contains the smaller order's items, the heuristic may follow different packing and search paths as the order grows. The benchmark records timings and statuses, not a detailed search trace, so it does not establish the exact cause. Three runs also do not establish a stable population-level runtime distribution.\n\n**Interpretation:** Best takes longer because it starts with Fast and evaluates additional packing alternatives. For 100 items and 20 carton types, the median was approximately **84 seconds for Fast** versus **106 seconds for Best**. Latency does not increase monotonically with item count because the packing difficulty and search branches can change as items are added. Best reported optimal solutions in all three repeats of that largest scenario. Optimality is about the carton-count objective, not proof that Best is the fastest mode.
 
-These are **synthetic scaling results**, not production latency guarantees. The measured runtime covers solver execution, not full application request overhead. The benchmark records `cartons_used` for both modes so carton reduction can be assessed separately from latency.
+These are **synthetic scaling results**, not production latency guarantees. The measured runtime covers solver execution, not full application request overhead. The benchmark records `cartons_used` for both modes so carton reduction can be assessed separately from latency. The box plots reveal the run-to-run spread that a median-only bar chart hides.
 
 **Reproducibility:** [Benchmark script](notebooks/benchmark_solver_scaling.py) · [Completed 240-run results and charts](https://github.com/Voycepeh/ihubsolutions-capstone-project/actions/runs/37873447275/artifacts/11591919183) · [Chart regeneration workflow](.github/workflows/tests.yml). Chart-only changes should reuse the completed CSV results rather than rerun the solver grid.
 

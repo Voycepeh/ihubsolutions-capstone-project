@@ -16,6 +16,9 @@ permissions:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
+    concurrency:
+      group: solver-demo-benchmark-publish
+      cancel-in-progress: false
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -73,6 +76,6 @@ jobs:
           if ! git diff --cached --quiet; then
             git commit -m "Regenerate 2000-order Fast vs Best benchmark"
             git fetch origin "${{ github.ref_name }}"
-            git rebase "origin/${{ github.ref_name }}"
+            git rebase -X theirs "origin/${{ github.ref_name }}"
             git push origin "HEAD:${{ github.ref_name }}"
           fi

@@ -7,10 +7,15 @@ on:
       - '.github/workflows/benchmark-best-30s.yml'
       - 'src/bin_packing_3d/strategies/best.py'
       - 'notebooks/update_benchmark_readme.py'
+      - 'notebooks/benchmark_solver_modes.py'
   workflow_dispatch:
 
 permissions:
   contents: write
+
+concurrency:
+  group: benchmark-2000-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   batch:

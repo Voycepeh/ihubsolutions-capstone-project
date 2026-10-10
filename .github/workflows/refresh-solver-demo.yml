@@ -1,13 +1,6 @@
 name: Refresh Solver Demo Benchmark
 
 on:
-  push:
-    branches:
-      - refresh-solver-demo-fast-20261009
-    paths:
-      - '.github/workflows/refresh-solver-demo.yml'
-      - 'notebooks/benchmark_solver_modes.py'
-      - 'notebooks/plot_solver_demo_comparison.py'
   workflow_dispatch:
 
 permissions:

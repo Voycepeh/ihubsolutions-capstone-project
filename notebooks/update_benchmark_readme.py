@@ -1,4 +1,4 @@
-"""Regenerate README comparison and tornado from the saved solver benchmark CSV."""
+"""Synchronize the README scorecard and tornado chart from the saved 2,000-order CSV."""
 from __future__ import annotations
 
 import csv
@@ -12,80 +12,104 @@ ROOT = Path(__file__).resolve().parents[1]
 CSV = ROOT / "notebooks/artifacts/benchmark_2000_best_vs_ihub.csv"
 README = ROOT / "README.md"
 TORNADO = ROOT / "benchmark_results/solver_demo/fast_best_ihub_tornado.svg"
+START = "### Fast vs Best vs iHub: carton recommendation quality"
 
-def score(row, prefix):
-    return (int(row[f"{prefix}_cartons"]), float(row[f"{prefix}_external_volume_mm3"]))
 
-def main():
-    with CSV.open(newline="", encoding="utf-8") as stream:
-        rows = list(csv.DictReader(stream))
+def compare(row: dict[str, str], mode: str) -> tuple[str, str | None]:
+    a = int(row[f"{mode}_cartons"])
+    b = int(row["ihub_cartons"])
+    av = float(row[f"{mode}_external_volume_mm3"])
+    bv = float(row["ihub_external_volume_mm3"])
+    if a != b:
+        return ("better" if a < b else "worse", "carton")
+    if av != bv:
+        return ("better" if av < bv else "worse", "single" if a == 1 else "multi")
+    return "same", None
+
+
+def main() -> None:
+    with CSV.open(newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
     if len(rows) != 2000 or len({r["order_id"] for r in rows}) != 2000:
-        raise ValueError("Expected 2000 unique orders")
+        raise ValueError("Expected 2,000 distinct benchmark orders")
     eligible = [r for r in rows if r["ihub_box9_over_fill_cap"].lower() != "true"]
+    reasons = ("carton", "single", "multi")
+    labels = ("Number of cartons", "Smaller box (single-box orders)", "Total box volume (multi-box orders)")
     totals = {}
     breakdown = {}
     for mode in ("fast", "best"):
-        counts = {"better": 0, "equal": 0, "worse": 0}
-        reasons = {"carton_count": {"better": 0, "worse": 0}, "total_volume": {"better": 0, "worse": 0}}
+        totals[mode] = {key: 0 for key in ("better", "same", "worse")}
+        breakdown[mode] = {reason: {"better": 0, "worse": 0} for reason in reasons}
         for row in eligible:
-            current, reference = score(row, mode), score(row, "ihub")
-            verdict = "better" if current < reference else "worse" if current > reference else "equal"
-            counts[verdict] += 1
-            if verdict != "equal":
-                reason = "carton_count" if current[0] != reference[0] else "total_volume"
-                reasons[reason][verdict] += 1
-        totals[mode], breakdown[mode] = counts, reasons
+            verdict, reason = compare(row, mode)
+            totals[mode][verdict] += 1
+            if reason:
+                breakdown[mode][reason][verdict] += 1
 
-    fig, ax = plt.subplots(figsize=(10, 3.7))
-    labels = ["Fewer / more cartons", "Lower / higher total volume"]
-    for i, reason in enumerate(("carton_count", "total_volume")):
-        fast = breakdown["fast"][reason]
-        best = breakdown["best"][reason]
-        ax.barh(i - .17, fast["better"], height=.3, label="Fast better" if i == 0 else None)
-        ax.barh(i - .17, -fast["worse"], height=.3, label="Fast worse" if i == 0 else None)
-        ax.barh(i + .17, best["better"], height=.3, label="Best better" if i == 0 else None)
-        ax.barh(i + .17, -best["worse"], height=.3, label="Best worse" if i == 0 else None)
-    ax.set_yticks(range(2), labels)
-    ax.axvline(0, color="gray", linewidth=.8)
-    ax.set_xlabel("Worse than iHub ← Orders → Better than iHub")
-    ax.set_title("What drives the difference? (policy-screened orders)")
-    ax.legend(ncol=4, loc="lower center", bbox_to_anchor=(.5, -.4), frameon=False)
-    fig.tight_layout()
+    fig, axes = plt.subplots(2, 1, figsize=(11, 7), sharex=True)
+    max_bar = max((breakdown[m][r][v] for m in ("fast", "best") for r in reasons for v in ("better", "worse")), default=1)
+    for ax, mode in zip(axes, ("fast", "best")):
+        for index, reason in enumerate(reasons):
+            better = breakdown[mode][reason]["better"]
+            worse = breakdown[mode][reason]["worse"]
+            ax.barh(index, -better, color="#008b91", height=0.48)
+            ax.barh(index, worse, color="#db783e", height=0.48)
+            ax.text(-better - max_bar * .02, index, str(better), ha="right", va="center", fontsize=10)
+            ax.text(worse + max_bar * .02, index, str(worse), ha="left", va="center", fontsize=10)
+        ax.set_yticks(range(3), labels)
+        ax.invert_yaxis()
+        ax.set_title(mode.title(), loc="left", fontweight="bold")
+        ax.axvline(0, color="#9aa9b5", lw=1)
+        ax.set_xlim(-max_bar * 1.45, max_bar * 1.45)
+        ax.spines[["top", "right", "bottom", "left"]].set_visible(False)
+        ax.tick_params(axis="y", length=0)
+        ax.tick_params(axis="x", bottom=False, labelbottom=False)
+    fig.suptitle("Why Fast and Best win or lose against iHub", x=.08, ha="left", fontsize=16, fontweight="bold")
+    fig.text(.08, .91, f"First differing objective across {len(eligible):,} policy-screened orders · counts, not percentages", fontsize=10, color="#526577")
+    fig.text(.08, .875, "Teal = Better (left)     Orange = Worse (right)", fontsize=10)
+    fig.text(.08, .02, f"Source: notebooks/artifacts/benchmark_2000_best_vs_ihub.csv · {len(rows)-len(eligible)} fill-cap exceptions excluded", fontsize=9, color="#526577")
+    fig.subplots_adjust(left=.39, right=.93, top=.82, bottom=.10, hspace=.5)
     TORNADO.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(TORNADO, bbox_inches="tight")
+    fig.savefig(TORNADO, format="svg")
     plt.close(fig)
 
-    def summary(mode):
-        c = totals[mode]
-        return f"**{mode.title()}: {c['better']:,} better / {c['equal']:,} equal / {c['worse']:,} worse**"
-    def table_row(reason, label):
-        values = [breakdown[m][reason][v] for m,v in (("fast","better"),("fast","worse"),("best","better"),("best","worse"))]
-        return "| " + label + " | " + " | ".join(str(x) for x in values) + " |"
+    def line(mode: str) -> str:
+        t = totals[mode]
+        return f"**{mode.title()}: {t['better']:,} better / {t['same']:,} same / {t['worse']:,} worse**"
+    def table_row(reason: str, label: str) -> str:
+        values = [breakdown[m][reason][v] for m, v in (("fast", "better"), ("fast", "worse"), ("best", "better"), ("best", "worse"))]
+        return "| " + label + " | " + " | ".join(str(v) for v in values) + " |"
+
     section = f"""### Fast vs Best vs iHub: carton recommendation quality
 
 ![Fast and Best compared with iHub on policy-compliant orders](benchmark_results/solver_demo/fast_best_ihub_comparison.svg)
 
-**Fresh 5-second Best benchmark:** {len(rows):,} orders; {len(rows)-len(eligible):,} flagged iHub fill-cap exceptions excluded; {len(eligible):,} policy-screened comparisons. The objective is **fewest cartons, then lowest total external carton volume**. {summary('fast')}; {summary('best')}.
+The latest saved benchmark evaluates **{len(rows):,} orders** from v2. **{len(rows)-len(eligible):,} iHub Box9 fill-cap exceptions** are excluded, leaving **{len(eligible):,} policy-screened comparisons**. The comparison ranks **fewer cartons first**, then **lower total external carton volume** when counts tie.
+
+- {line("fast")}
+- {line("best")}
 
 #### What drives improvements and losses
 
-![Breakdown by first differing objective](benchmark_results/solver_demo/fast_best_ihub_tornado.svg)
+![Fast and Best differences by first differing objective](benchmark_results/solver_demo/fast_best_ihub_tornado.svg)
 
 | First differing objective | Fast better | Fast worse | Best better | Best worse |
 | --- | ---: | ---: | ---: | ---: |
-{table_row('carton_count', 'Carton count')}
-{table_row('total_volume', 'Total external carton volume')}
+{table_row("carton", "Number of cartons")}
+{table_row("single", "Smaller box (single-box orders)")}
+{table_row("multi", "Lower total box volume (multi-box orders)")}
 
-The historical iHub output does not include independently verifiable 3D item placements, so reference recommendations are comparisons, not proven feasible packing solutions. The counts above are generated from the same saved CSV as the chart and Solver Demo.
+Each non-equal order is counted once, against the first differing objective. A matching result means the **ranked carton objective** ties, not necessarily that carton types or item placements match. iHub's recorded recommendations are historical references, not independently verified three-dimensional packings.
 
 [Download the 2,000-order benchmark CSV](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) · [Open the executed Solver Demo](notebooks/Solver%20Demo.ipynb)
 
 """
     old = README.read_text(encoding="utf-8")
-    start = old.index("### Fast vs Best vs iHub: carton recommendation quality")
+    start = old.index(START)
     end = old.index("</details>", start)
     README.write_text(old[:start] + section + old[end:], encoding="utf-8")
-    print(f"Updated README and tornado from {len(rows)} rows: {totals}")
+    print(f"Updated README and tornado from {len(rows)} orders: {totals}")
+
 
 if __name__ == "__main__":
     main()

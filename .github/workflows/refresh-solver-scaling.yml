@@ -11,7 +11,7 @@ on:
 jobs:
   benchmark:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -24,7 +24,10 @@ jobs:
       - name: Run current-strategy scaling benchmark
         run: |
           python notebooks/benchmark_solver_scaling.py \
+            --items 5,10,15,20,30,50,75,100 \
+            --boxes 3,5,10,15,20 \
             --repeats "${{ inputs.repeats }}" \
+            --seed 20261008 \
             --output-dir benchmark_results/solver_scaling_refresh
       - name: Upload raw measurements and charts
         if: always()

@@ -78,8 +78,8 @@ def publish(source: Path, destination: Path, readme_path: Path, repeats: int) ->
     heading = f"### Solver execution time: Fast vs Best ({date_label})"
     conclusion = (
         f"**Conclusion (refreshed uncapped {len(summary) * repeats}-run simulation):** "
-        f"At 100 items and 20 carton types, Fast's median runtime was **{fast:,.1f} ms** "
-        f"and Best's was **{best:,.1f} ms**. "
+        f"At 100 items and 20 carton types, Fast's median runtime was **{fast / 1000:,.3f} seconds** "
+        f"and Best's was **{best / 1000:,.3f} seconds**. "
         "These are synthetic, uncapped runs, not measurements of the 5-second production Best budget. "
         "The objective is fewest cartons, then lowest total external carton volume. "
         "The charts and figures are generated from the saved benchmark results."

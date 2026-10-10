@@ -177,6 +177,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
     import matplotlib.pyplot as plt
+    from matplotlib.ticker import FuncFormatter
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -268,7 +269,7 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
     axis.set_xticks(x_positions, labels=item_counts)
     axis.set_xlabel("Items in one order")
     axis.set_ylabel("Runtime (seconds)")
-    axis.yaxis.set_major_formatter(plt.FuncFormatter(lambda value, _: f"{value:,.0f}"))
+    axis.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.0f}"))
     for bars in axis.containers:
         axis.bar_label(bars, labels=[f"{bar.get_height():,.2f}" if bar.get_height() >= 0.01 else "" for bar in bars], padding=2, fontsize=8)
     axis.set_title(f"Estimated Best runtime breakdown ({comparison_box_count} box types)")
@@ -303,7 +304,7 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
         axis.set_title(f"{mode.title()} latency: items x box choices")
         colorbar = figure.colorbar(image, ax=axis)
         colorbar.set_label("Median latency (seconds)")
-        colorbar.ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda value, _: f"{value:,.1f}"))
+        colorbar.ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.1f}"))
 
         for row_index, item_count in enumerate(items):
             for column_index, box_count in enumerate(boxes):

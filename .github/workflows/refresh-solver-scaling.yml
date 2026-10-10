@@ -8,6 +8,10 @@ on:
         required: true
         default: '3'
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   benchmark:
     runs-on: ubuntu-latest
@@ -36,3 +40,28 @@ jobs:
           name: solver-scaling-greedy-fast
           path: benchmark_results/solver_scaling_refresh/
           if-no-files-found: warn
+      - name: Validate and prepare README refresh
+        run: |
+          python notebooks/publish_solver_scaling.py \
+            --source benchmark_results/solver_scaling_refresh \
+            --destination benchmark_results/solver_scaling_current \
+            --repeats "${{ inputs.repeats }}"
+      - name: Propose refreshed benchmark results
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "docs: refresh solver scaling measurements and conclusion"
+          branch: automation/solver-scaling-results
+          delete-branch: true
+          title: "Refresh solver scaling charts and README conclusion"
+          body: |
+            Generated from the completed scaling benchmark.
+            Only scaling CSVs, existing SVG charts, and the execution-time conclusion are refreshed.
+            Review measurements and chart diffs before merging.
+          add-paths: |
+            benchmark_results/solver_scaling_current/raw_results.csv
+            benchmark_results/solver_scaling_current/summary.csv
+            benchmark_results/solver_scaling_current/solver_scaling_fast_heatmap.svg
+            benchmark_results/solver_scaling_current/solver_scaling_best_heatmap.svg
+            benchmark_results/solver_scaling_current/solver_scaling_best_breakdown.svg
+            README.md

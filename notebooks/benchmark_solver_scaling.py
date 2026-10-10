@@ -177,6 +177,7 @@ def write_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
     import matplotlib.pyplot as plt
+    from matplotlib.ticker import FuncFormatter
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -262,12 +263,15 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
         ))
     figure, axis = plt.subplots(figsize=(12, 6))
     x_positions = list(range(len(item_counts)))
-    axis.bar(x_positions, fast_medians, label="Fast baseline (separate call)")
-    axis.bar(x_positions, extra_medians, bottom=fast_medians,
+    axis.bar(x_positions, fast_medians, color="#60A5FA", label="Fast baseline (separate call)")
+    axis.bar(x_positions, extra_medians, bottom=fast_medians, color="#1D4ED8",
              label="Additional Best time (estimated)")
     axis.set_xticks(x_positions, labels=item_counts)
     axis.set_xlabel("Items in one order")
     axis.set_ylabel("Runtime (seconds)")
+    axis.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.0f}"))
+    for bars in axis.containers:
+        axis.bar_label(bars, labels=[f"{bar.get_height():,.2f}" if bar.get_height() >= 0.01 else "" for bar in bars], padding=2, fontsize=8)
     axis.set_title(f"Estimated Best runtime breakdown ({comparison_box_count} box types)")
     axis.legend()
     axis.grid(axis="y", alpha=0.2)
@@ -289,22 +293,26 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
             (row["items"], row["box_types"]): row["median_runtime_ms"]
             for row in mode_rows
         }
-        matrix = [[lookup[(item_count, box_count)] for box_count in boxes] for item_count in items]
+        matrix = [[lookup[(item_count, box_count)] / 1000 for box_count in boxes] for item_count in items]
 
         figure, axis = plt.subplots(figsize=(9, 6))
-        image = axis.imshow(matrix, aspect="auto")
+        image = axis.imshow(matrix, aspect="auto", cmap="Blues", vmin=0)
         axis.set_xticks(range(len(boxes)), labels=boxes)
         axis.set_yticks(range(len(items)), labels=items)
         axis.set_xlabel("Available box types")
         axis.set_ylabel("Items in one order")
         axis.set_title(f"{mode.title()} latency: items x box choices")
         colorbar = figure.colorbar(image, ax=axis)
-        colorbar.set_label("Median latency (ms)")
+        colorbar.set_label("Median latency (seconds)")
+        colorbar.ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f"{value:,.1f}"))
 
         for row_index, item_count in enumerate(items):
             for column_index, box_count in enumerate(boxes):
-                value = lookup[(item_count, box_count)]
-                axis.text(column_index, row_index, f"{value:,.0f}", ha="center", va="center")
+                value = lookup[(item_count, box_count)] / 1000
+                label = f"{value:,.3f}" if value < 1 else f"{value:,.2f}"
+                intensity = image.norm(value)
+                axis.text(column_index, row_index, label, ha="center", va="center",
+                          color="white" if intensity > 0.55 else "#0F172A", fontsize=9)
 
         figure.tight_layout()
         figure.savefig(output_dir / f"solver_scaling_{mode}_heatmap.png", dpi=160)

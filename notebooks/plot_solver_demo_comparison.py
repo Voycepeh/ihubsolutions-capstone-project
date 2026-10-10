@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+from benchmark_comparison import read_benchmark, eligible_rows, summarize
 
 
 def main() -> None:
@@ -17,27 +18,17 @@ def main() -> None:
     parser.add_argument("output_path", type=Path)
     args = parser.parse_args()
 
-    with args.csv_path.open(newline="", encoding="utf-8") as file:
-        rows = list(csv.DictReader(file))
+    rows = read_benchmark(args.csv_path)
     if not rows:
         raise ValueError("Benchmark CSV is empty")
 
-    eligible = [r for r in rows if r["ihub_box9_over_fill_cap"].lower() != "true"]
+    eligible = eligible_rows(rows)
     if not eligible:
         raise ValueError("No policy-compliant reference orders")
 
-    fields = ("cartons", "external_volume_mm3")
-    def objective(row: dict[str, str], mode: str) -> tuple[float, ...]:
-        return tuple(float(row[f"{mode}_{field}"]) for field in fields)
-
+    score = summarize(rows)
     categories = ("Better", "Same", "Worse")
-    counts = {}
-    for mode in ("fast", "best"):
-        results = []
-        for row in eligible:
-            current, reference = objective(row, mode), objective(row, "ihub")
-            results.append("Better" if current < reference else "Same" if current == reference else "Worse")
-        counts[mode] = [results.count(label) for label in categories]
+    counts = {mode: [score[mode][label] for label in categories] for mode in ("fast", "best")}
 
     fig, ax = plt.subplots(figsize=(10, 4.3))
     positions = np.arange(2)

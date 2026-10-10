@@ -73,8 +73,8 @@ def publish(source: Path, destination: Path, readme_path: Path, repeats: int) ->
     best = float(lookup[(100, 20, "best")]["median_runtime_ms"])
     date_label = f"{date.today().day} {date.today():%B %Y}"
     readme = readme_path.read_text(encoding="utf-8")
-    heading_pattern = r"### Solver execution time: Fast vs Best \\([^\\n]*\\)"
-    conclusion_pattern = r"\\*\\*Conclusion \\([^\\n]*?\\):\\*\\*[^\\n]*"
+    heading_pattern = r"### Solver execution time: Fast vs Best \([^\n]*\)"
+    conclusion_pattern = r"\*\*Conclusion \([^\n]*?\):\*\*[^\n]*"
     heading = f"### Solver execution time: Fast vs Best ({date_label})"
     conclusion = (
         f"**Conclusion (refreshed uncapped {len(summary) * repeats}-run simulation):** "

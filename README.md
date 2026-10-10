@@ -56,7 +56,7 @@ The normal solver choice is:
 
 **Timeout and fallback:** Best defaults to **5 seconds of additional exact search after Fast finishes**. If search reaches its deadline, it returns the validated Fast baseline with `best_result_source="fast_fallback"` and `optimality_proven=False`. Best must never return more cartons than Fast for the same order and constraints.
 
-**Benchmark scope:** The saved comparison with iHub evaluates **carton count only**. Equal carton counts do not establish equal packing quality: our Best objective also considers smaller carton choices and space use when carton counts tie.
+**Benchmark scope:** The canonical saved comparison ranks **fewer cartons first**, then **lower total external carton volume** when carton counts tie. The demo scorecard and both README charts use the same saved 2,000-order run and policy filter.
 
 
 </details>

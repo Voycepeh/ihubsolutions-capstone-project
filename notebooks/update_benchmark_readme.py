@@ -1,7 +1,7 @@
 """Synchronize the README scorecard and tornado chart from the saved 2,000-order CSV."""
 from __future__ import annotations
 
-import csv
+from benchmark_comparison import read_benchmark, eligible_rows, summarize
 from pathlib import Path
 
 import matplotlib
@@ -15,36 +15,14 @@ TORNADO = ROOT / "benchmark_results/solver_demo/fast_best_ihub_tornado.svg"
 START = "### Fast vs Best vs iHub: carton recommendation quality"
 
 
-def compare(row: dict[str, str], mode: str) -> tuple[str, str | None]:
-    a = int(row[f"{mode}_cartons"])
-    b = int(row["ihub_cartons"])
-    av = float(row[f"{mode}_external_volume_mm3"])
-    bv = float(row["ihub_external_volume_mm3"])
-    if a != b:
-        return ("better" if a < b else "worse", "carton")
-    if av != bv:
-        return ("better" if av < bv else "worse", "single" if a == 1 else "multi")
-    return "same", None
-
-
 def main() -> None:
-    with CSV.open(newline="", encoding="utf-8") as f:
-        rows = list(csv.DictReader(f))
-    if len(rows) != 2000 or len({r["order_id"] for r in rows}) != 2000:
-        raise ValueError("Expected 2,000 distinct benchmark orders")
-    eligible = [r for r in rows if r["ihub_box9_over_fill_cap"].lower() != "true"]
+    rows = read_benchmark(CSV)
+    eligible = eligible_rows(rows)
+    score = summarize(rows)
     reasons = ("carton", "single", "multi")
     labels = ("Number of cartons", "Smaller box (single-box orders)", "Total box volume (multi-box orders)")
-    totals = {}
-    breakdown = {}
-    for mode in ("fast", "best"):
-        totals[mode] = {key: 0 for key in ("better", "same", "worse")}
-        breakdown[mode] = {reason: {"better": 0, "worse": 0} for reason in reasons}
-        for row in eligible:
-            verdict, reason = compare(row, mode)
-            totals[mode][verdict] += 1
-            if reason:
-                breakdown[mode][reason][verdict] += 1
+    totals = {mode: {label.lower(): score[mode][label] for label in ("Better", "Same", "Worse")} for mode in ("fast", "best")}
+    breakdown = {mode: {reason: {label.lower(): score[f"{mode}_reasons"][reason][label] for label in ("Better", "Worse")} for reason in reasons} for mode in ("fast", "best")}
 
     fig, axes = plt.subplots(2, 1, figsize=(11, 7), sharex=True)
     max_bar = max((breakdown[m][r][v] for m in ("fast", "best") for r in reasons for v in ("better", "worse")), default=1)
@@ -84,7 +62,7 @@ def main() -> None:
 
 ![Fast and Best compared with iHub on policy-compliant orders](benchmark_results/solver_demo/fast_best_ihub_comparison.svg)
 
-The latest saved benchmark evaluates **{len(rows):,} orders** from v2. **{len(rows)-len(eligible):,} iHub Box9 fill-cap exceptions** are excluded, leaving **{len(eligible):,} policy-screened comparisons**. The comparison ranks **fewer cartons first**, then **lower total external carton volume** when counts tie.
+The canonical saved benchmark evaluates **{len(rows):,} orders** from v2. **{len(rows)-len(eligible):,} iHub Box9 fill-cap exceptions** are excluded, leaving **{len(eligible):,} policy-screened comparisons**. The comparison ranks **fewer cartons first**, then **lower total external carton volume** when counts tie.
 
 - {line("fast")}
 - {line("best")}

@@ -244,7 +244,9 @@ result = solve_order(
 )
 ```
 
-For the rendered 3D packing, run the visualization cell in the [Solver Demo notebook](notebooks/Solver%20Demo.ipynb). The previously linked static PNG is not included in this repository.
+![Validated 3D packing example in Box8](docs/images/solver-3d-visualization.png)
+
+*Example of a validated 3D packing arrangement. To explore other orders interactively, use the [Solver Demo notebook](notebooks/Solver%20Demo.ipynb).*
 
 The visualization is for inspection and explanation. The XYZ coordinates establish a valid geometric packing and are not intended as exact instructions for a ground packer to reproduce.
 

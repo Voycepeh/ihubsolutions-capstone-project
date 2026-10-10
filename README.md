@@ -346,10 +346,10 @@ The charts below show execution time across synthetic orders with different item
 
 ![Fast and Best compared with iHub on policy-compliant orders](benchmark_results/solver_demo/fast_best_ihub_comparison.svg)
 
-The latest saved benchmark evaluates **2,000 orders** from v2. **74 iHub Box9 fill-cap exceptions** are excluded, leaving **1,926 policy-screened comparisons**. The comparison ranks **fewer cartons first**, then **lower total external carton volume** when counts tie.
+The latest saved benchmark evaluates **2,000 orders** from v2. **183 iHub Box9 fill-cap exceptions** are excluded, leaving **1,817 policy-screened comparisons**. The comparison ranks **fewer cartons first**, then **lower total external carton volume** when counts tie.
 
-- **Fast: 17 better / 1,739 same / 170 worse**
-- **Best: 59 better / 1,867 same / 0 worse**
+- **Fast: 18 better / 1,584 same / 215 worse**
+- **Best: 67 better / 1,750 same / 0 worse**
 
 #### What drives improvements and losses
 
@@ -357,9 +357,9 @@ The latest saved benchmark evaluates **2,000 orders** from v2. **74 iHub Box9 fi
 
 | First differing objective | Fast better | Fast worse | Best better | Best worse |
 | --- | ---: | ---: | ---: | ---: |
-| Number of cartons | 0 | 0 | 0 | 0 |
-| Smaller box (single-box orders) | 17 | 170 | 59 | 0 |
-| Lower total box volume (multi-box orders) | 0 | 0 | 0 | 0 |
+| Number of cartons | 1 | 41 | 2 | 0 |
+| Smaller box (single-box orders) | 17 | 170 | 62 | 0 |
+| Lower total box volume (multi-box orders) | 0 | 4 | 3 | 0 |
 
 Each non-equal order is counted once, against the first differing objective. A matching result means the **ranked carton objective** ties, not necessarily that carton types or item placements match. iHub's recorded recommendations are historical references, not independently verified three-dimensional packings.
 

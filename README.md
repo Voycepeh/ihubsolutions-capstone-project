@@ -324,7 +324,7 @@ result = solve_order(
 
 This makes Best a deliberate tradeoff: callers can give the optimizer more time when carton reduction matters, or keep the search tightly bounded when response time matters.
 
-### Solver execution time: Fast vs Best (9 October 2026)
+### Solver execution time: Fast vs Best (10 October 2026)
 
 The charts below show execution time across synthetic orders with different item counts and carton catalogue sizes.
 
@@ -340,7 +340,7 @@ The charts below show execution time across synthetic orders with different item
 
 ![Fast and Best runtime breakdown](benchmark_results/solver_scaling_current/solver_scaling_best_breakdown.svg)
 
-**Conclusion (refreshed uncapped 240-run simulation):** At 100 items and 20 carton types, Fast's median runtime was **278.3 ms** and Best's was **23,616.0 ms**. These are synthetic, uncapped runs, not measurements of the 5-second production Best budget. The objective is fewest cartons, then lowest total external carton volume. The charts and figures are generated from the saved benchmark results, not estimated from the previous solver version.
+**Conclusion (refreshed uncapped 240-run simulation):** At 100 items and 20 carton types, Fast's median runtime was **0.275 seconds** and Best's was **23.047 seconds**. These are synthetic, uncapped runs, not measurements of the 5-second production Best budget. The objective is fewest cartons, then lowest total external carton volume. The charts and figures are generated from the saved benchmark results.
 
 ### Fast vs Best vs iHub: carton recommendation quality
 

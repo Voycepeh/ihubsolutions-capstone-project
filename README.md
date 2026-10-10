@@ -344,32 +344,24 @@ The charts below show execution time across synthetic orders with different item
 
 ![Fast and Best compared with iHub on policy-compliant orders](benchmark_results/solver_demo/fast_best_ihub_comparison.svg)
 
-The overall comparison chart and the tornado breakdown use the **same 2,000-order v2 benchmark CSV** as the Solver Demo. The tornado is a **snapshot recalculated for the updated comparison rules**; automatic regeneration of this new chart is not yet wired into the benchmark workflow. Each bar compares the solver's recommendation with iHub's recorded result: first by **number of cartons**; when counts match, by **box size for single-box orders** or **combined external box volume for multi-box orders**. The solver objective is carton count followed by total external carton volume, regardless of individual carton sizes. The comparison excludes iHub orders flagged for exceeding the recorded Box9 fill cap; these exceptions remain in the CSV for separate inspection. The iHub record does not include independently verifiable 3D placements.
+The latest saved benchmark evaluates **2,000 orders** from v2. **74 iHub Box9 fill-cap exceptions** are excluded, leaving **1,926 policy-screened comparisons**. The comparison ranks **fewer cartons first**, then **lower total external carton volume** when counts tie.
 
-**What the results show.** Across **2,000 orders**, **183 iHub references are flagged for exceeding the Box9 fill cap**, leaving **1,817** for the policy-screened comparison. Under the ranked objective (fewest cartons, then smaller single box or lower combined multi-box volume), **Fast: 18 better / 1,584 equal / 215 worse**; **Best: 67 better / 1,748 equal / 2 worse**.
+- **Fast: 17 better / 1,739 same / 170 worse**
+- **Best: 59 better / 1,867 same / 0 worse**
 
 #### What drives improvements and losses
 
-![Tornado chart of Fast and Best improvements and losses by first differing rule](benchmark_results/solver_demo/fast_best_ihub_tornado.svg)
+![Fast and Best differences by first differing objective](benchmark_results/solver_demo/fast_best_ihub_tornado.svg)
 
-**Why recommendations win or lose.** Compare **box count first**. If both recommendations use one box, compare that box's external volume. If both use two or more boxes, compare their **total external box volume**, even when one individual box is larger. The first applicable rule determines the result. All counts use the same **1,817 policy-screened orders**.
-
-| Comparison rule | Fast better | Fast worse | Best better | Best worse |
+| First differing objective | Fast better | Fast worse | Best better | Best worse |
 | --- | ---: | ---: | ---: | ---: |
-| 1. Fewer / more boxes | 1 | 41 | 2 | 2 |
-| 2. Smaller / larger box (one box each) | 17 | 170 | 62 | 0 |
-| 3. Lower / higher total volume (multiple boxes each) | 0 | 4 | 3 | 0 |
-| **Total** | **18** | **215** | **67** | **2** |
+| Number of cartons | 0 | 0 | 0 | 0 |
+| Smaller box (single-box orders) | 17 | 170 | 59 | 0 |
+| Lower total box volume (multi-box orders) | 0 | 0 | 0 | 0 |
 
-Of Best's **67 improvements**, **62 (92.5%)** come from selecting a smaller single box, **3 (4.5%)** from reducing total volume in multi-box orders, and **2 (3.0%)** from using fewer boxes. Both Best losses involve using more boxes. The breakdown shows which objective decides each non-equal outcome.
+Each non-equal order is counted once, against the first differing objective. A matching result means the **ranked carton objective** ties, not necessarily that carton types or item placements match. iHub's recorded recommendations are historical references, not independently verified three-dimensional packings.
 
-Matching carton count does **not** necessarily mean choosing the same carton types or proving that iHub's historical arrangement was physically feasible.
-
-**Primary objective — carton count only:** Against those 1,817 references, **Best uses fewer cartons on 2 orders, the same count on 1,813, and more on 2**. The two carton-count losses are orders **382** (iHub 3, Best 4) and **1778** (iHub 3, Best 5). These require investigation before claiming Best always matches or beats iHub. The previous benchmark on `main` had **zero Best losses** under the same policy-screened, ranked objective (67 better / 1,750 equal / 0 worse), so the refreshed result represents a possible regression, not just a scoring-definition change.
-
-**Conclusion:** Best performs much better than Fast on the ranked carton objective, but its two newly observed losses need diagnosis. The reference iHub output lacks independently verified 3D placements, so a lower recorded carton count does not by itself prove a feasible arrangement under our constraints. This is a development benchmark, not independent holdout validation.
-
-The [benchmark CSV](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) and [executed Solver Demo notebook](notebooks/Solver%20Demo.ipynb) contain the order-level evidence and preserved outputs. The existing overall comparison chart is regenerated alongside the CSV by GitHub Actions; the new tornado chart is currently a static benchmark snapshot. Synchronizing chart generation and the solver's selection objective is follow-up work.
+[Download the 2,000-order benchmark CSV](notebooks/artifacts/benchmark_2000_best_vs_ihub.csv) · [Open the executed Solver Demo](notebooks/Solver%20Demo.ipynb)
 
 </details>
 

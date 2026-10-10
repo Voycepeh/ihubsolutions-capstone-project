@@ -49,11 +49,10 @@ class BestFitSolver:
         # The engine normally calls prepare() before its runtime timer. Keep this
         # cached call for direct strategy users.
         _cp_model_module()
-        started = perf_counter()
-        deadline = None if config.max_runtime_ms is None else started + config.max_runtime_ms / 1000.0
         # Fast is the incumbent and fallback. Exact search only replaces it when
         # CP-SAT finds a better carton objective within the shared deadline.
         incumbent = FastFitSolver().solve(items, boxes, config)
+        deadline = None if config.max_runtime_ms is None else perf_counter() + config.max_runtime_ms / 1000.0
         incumbent.metadata.update({"optimality_proven": False, "search_status": "time_limit", "best_result_source": "fast_fallback"})
         max_count = len(incumbent.packed_boxes)
 
@@ -63,7 +62,6 @@ class BestFitSolver:
             choices = sorted(
                 combinations_with_replacement(boxes, carton_count),
                 key=lambda choice: (
-                    max(box.external_volume for box in choice),
                     sum(box.external_volume for box in choice),
                     tuple(box.code for box in choice),
                 ),
@@ -78,6 +76,10 @@ class BestFitSolver:
                 if status == "UNKNOWN":
                     return incumbent
                 if plan is not None:
+                    incumbent_score = (len(incumbent.packed_boxes), sum(box.external_volume for box in boxes for packed in incumbent.packed_boxes if packed.box_code == box.code))
+                    plan_score = (len(plan.packed_boxes), sum(box.external_volume for box in boxes for packed in plan.packed_boxes if packed.box_code == box.code))
+                    if plan_score > incumbent_score:
+                        return incumbent
                     plan.metadata.update({
                         "optimality_proven": True,
                         "search_status": "optimal",

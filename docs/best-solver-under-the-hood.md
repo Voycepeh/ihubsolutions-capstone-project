@@ -29,9 +29,12 @@ incumbent = FastFitSolver().solve(items, boxes, config)
 incumbent.metadata.update({
     "optimality_proven": False,
     "search_status": "time_limit",
+    "best_result_source": "fast_fallback",
 })
 max_count = len(incumbent.packed_boxes)
 ```
+
+By default, `solve_order(..., mode="best")` uses `max_runtime_ms=5000`: **5 seconds for Best's additional exact search**, starting after Fast finishes. The caller can override this budget; `None` disables the search deadline. It is not a hard cap on total API wall-clock time.
 
 It then tries carton combinations starting from one carton up to the number already used by Fast.
 
@@ -42,12 +45,13 @@ for carton_count in range(1, max_count + 1):
     choices = sorted(
         combinations_with_replacement(boxes, carton_count),
         key=lambda choice: (
-            max(box.external_volume for box in choice),
             sum(box.external_volume for box in choice),
             tuple(box.code for box in choice),
         ),
     )
 ```
+
+The priority is **fewest cartons, then lowest total external carton volume**. For example, 25 L + 5 L beats 20 L + 15 L at the same carton count. Equal counts and total volumes tie on the business objective; carton codes only make the iteration order deterministic.
 
 So CP-SAT is **not choosing the carton catalogue itself**.
 
@@ -240,7 +244,7 @@ The integration treats CP-SAT outcomes simply:
 | Infeasible | Try the next carton combination |
 | Unknown or time exhausted | Return the Fast fallback |
 
-A Best timeout therefore does **not** mean packing failed. It means exact search did not finish within the configured budget.
+A Best timeout therefore does **not** mean packing failed. When the 5-second budget expires without an exact result, `best_result_source="fast_fallback"` and `optimality_proven=False` identify the returned Fast packing. It means exact search did not finish within the configured budget.
 
 ## Important warnings
 

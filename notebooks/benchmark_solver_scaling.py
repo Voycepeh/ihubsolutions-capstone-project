@@ -277,6 +277,7 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
                 ha="center", fontsize=9)
     figure.tight_layout(rect=(0, 0.04, 1, 1))
     figure.savefig(output_dir / "solver_scaling_best_breakdown.png", dpi=160)
+    figure.savefig(output_dir / "solver_scaling_best_breakdown.svg")
     plt.close(figure)
 
     # Heatmaps make the interaction between item count and catalogue size clear.
@@ -307,6 +308,7 @@ def plot_results(summary: list[dict[str, Any]], output_dir: Path) -> None:
 
         figure.tight_layout()
         figure.savefig(output_dir / f"solver_scaling_{mode}_heatmap.png", dpi=160)
+        figure.savefig(output_dir / f"solver_scaling_{mode}_heatmap.svg")
         plt.close(figure)
 
 

@@ -33,18 +33,18 @@ jobs:
 
           cases = [(n, 20, 20261008 + repeat) for n in (50, 75, 100) for repeat in range(3)]
           runner = r'''
-import json
-import sys
-from pathlib import Path
-root = Path(sys.argv[1])
-sys.path.insert(0, str(root / "src"))
-sys.path.insert(0, str(root / "notebooks"))
-from benchmark_solver_scaling import generate_boxes, generate_order
-from bin_packing_3d import solve_order
-items, box_count, seed = map(int, sys.argv[2:5])
-result = solve_order(generate_order(items, seed), generate_boxes(box_count), mode="fast", max_runtime_ms=None)
-print(json.dumps({"items": items, "box_types": box_count, "seed": seed, "cartons": result.metrics.box_count, "runtime_ms": round(result.runtime_ms, 2), "valid": result.validation.valid, "status": result.status}))
-'''
+          import json
+          import sys
+          from pathlib import Path
+          root = Path(sys.argv[1])
+          sys.path.insert(0, str(root / "src"))
+          sys.path.insert(0, str(root / "notebooks"))
+          from benchmark_solver_scaling import generate_boxes, generate_order
+          from bin_packing_3d import solve_order
+          items, box_count, seed = map(int, sys.argv[2:5])
+          result = solve_order(generate_order(items, seed), generate_boxes(box_count), mode="fast", max_runtime_ms=None)
+          print(json.dumps({"items": items, "box_types": box_count, "seed": seed, "cartons": result.metrics.box_count, "runtime_ms": round(result.runtime_ms, 2), "valid": result.validation.valid, "status": result.status}))
+          '''
           current = Path.cwd()
           baseline = Path("/tmp/ihub-main")
           print("items,seed,baseline_cartons,proposed_cartons,baseline_ms,proposed_ms,baseline_valid,proposed_valid", flush=True)

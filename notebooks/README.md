@@ -8,6 +8,7 @@ This directory contains exploratory analysis, demonstrations, historical packing
 | --- | --- |
 | [Initial EDA v2](Inital%20EDA%20v2.ipynb) | Explore the newer sample dataset and interpret order and carton characteristics. |
 | [Initial EDA v1](Inital%20EDA.ipynb) | Earlier exploratory analysis for the original sample. |
+| [Latency Comparison](Latency%20Comparison.ipynb) | Fast, Best and iHub timing across the same 2,000 orders, including distributions and matched comparisons. |
 | [Solver Demo](Solver%20Demo.ipynb) | Interactive demonstration of carton packing. |
 | [Simulated Rule Proof](Simulated%20Rule%20Proof.ipynb) | Explore and test simulated packing rules. |
 | [Capstone notebook](capstone.ipynb) | Earlier capstone exploration. |

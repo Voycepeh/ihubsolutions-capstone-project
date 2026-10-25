@@ -378,6 +378,7 @@ Each non-equal order is counted once, against the first differing objective. A m
 | [Product specification](src/PRODUCT_SPEC.md) | Detailed functional rules and API contract |
 | [Research and literature](docs/solver-approach-and-literature.md) | Academic references and rationale for the chosen approach |
 | [Development datasets](data/raw/README.md) | v1/v2 schemas, carton catalogues and packing parameters ([change log](data/raw/CHANGELOG.md)) |
+| [Latency Comparison](notebooks/Latency%20Comparison.ipynb) | Saved Fast, Best and iHub latency charts across the same 2,000 orders; local solver runtime versus iHub service round trip |
 | [Solver Demo](notebooks/Solver%20Demo.ipynb) | Select any order, compare live Fast/Best against iHub, inspect 3D placements, and view the saved benchmark |
 | [Solver Guardrail Simulation](notebooks/Simulated%20Rule%20Proof.ipynb) | Executable Config + Items + Boxes scenarios showing the real solver skipping cartons, choosing fallbacks, or rejecting orders when guardrails apply |
 

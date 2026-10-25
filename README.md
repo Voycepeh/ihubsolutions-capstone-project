@@ -4,10 +4,6 @@ NUS Industry 4.0 Master's capstone project for practical 3D carton recommendatio
 
 The package takes an order and carton catalogue, applies configurable packing rules, and returns a validated carton recommendation with item orientations and XYZ placements.
 
-## Latency comparison
-
-[Open the Fast vs Best vs iHub latency notebook](notebooks/Latency%20Comparison.ipynb) for median and P95 timing, full distributions, and matched comparisons across all 2,000 saved v2 orders. iHub timings include the service round trip; Fast and Best timings measure local solver execution.
-
 ## Try the Solver Demo
 
 **Pick an order and inspect the packing recommendation.** The [interactive Solver Demo notebook](notebooks/Solver%20Demo.ipynb) loads the original sample order and its packing constraints, runs both **Fast** and **Best**, and places their recommendations alongside iHub's recorded result.
@@ -382,6 +378,7 @@ Each non-equal order is counted once, against the first differing objective. A m
 | [Product specification](src/PRODUCT_SPEC.md) | Detailed functional rules and API contract |
 | [Research and literature](docs/solver-approach-and-literature.md) | Academic references and rationale for the chosen approach |
 | [Development datasets](data/raw/README.md) | v1/v2 schemas, carton catalogues and packing parameters ([change log](data/raw/CHANGELOG.md)) |
+| [Latency Comparison](notebooks/Latency%20Comparison.ipynb) | Saved Fast, Best and iHub latency charts across the same 2,000 orders; local solver runtime versus iHub service round trip |
 | [Solver Demo](notebooks/Solver%20Demo.ipynb) | Select any order, compare live Fast/Best against iHub, inspect 3D placements, and view the saved benchmark |
 | [Solver Guardrail Simulation](notebooks/Simulated%20Rule%20Proof.ipynb) | Executable Config + Items + Boxes scenarios showing the real solver skipping cartons, choosing fallbacks, or rejecting orders when guardrails apply |
 

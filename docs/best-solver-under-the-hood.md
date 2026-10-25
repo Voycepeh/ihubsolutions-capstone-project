@@ -22,24 +22,82 @@ For example, at the same carton count, 25 L + 5 L outranks 20 L + 15 L because t
 
 Before doing detailed geometry work, Best skips combinations that lack enough total usable volume or weight capacity, or that cannot fit an individual item in any chosen carton. Passing these checks means the combination is worth investigating; it does not establish a valid packing.
 
-### 3. Ask whether each combination really fits
+### 3. Give CP-SAT the packing problem
 
-For one chosen combination, CP-SAT answers:
+CP-SAT is Google's general constraint and optimization engine. We describe the choices it can make and the rules it must obey. It searches for values that satisfy those rules.
 
-> Can every physical item be assigned a carton, an allowed rotation and an XYZ position while satisfying all packing rules?
+For one chosen carton combination, our application asks:
 
-CP-SAT is a constraint solver: we describe the allowed choices and rules, and it searches for values that satisfy them. It runs locally inside the application process.
+> Can these items fit inside these cartons, respecting rotation, weight, fill and clearance?
 
-| Choice or rule | What the solver must establish |
+#### What exactly goes into CP-SAT?
+
+Our code converts the order and selected cartons into a mathematical model:
+
+| Part | What our model gives CP-SAT |
 | --- | --- |
-| Carton assignment | Each physical item belongs to exactly one carton. |
-| Rotation | Each item uses an allowed orientation, including upright restrictions. |
-| Position | Each item has an XYZ position inside its assigned carton's usable dimensions. |
-| Weight | Items assigned to a carton stay within its weight limit. |
-| Fill | Their combined volume stays within the active fill limit. |
-| No overlap | Items sharing a carton remain separated in at least one axis direction. |
+| Item information | Each physical unit's dimensions, weight and allowed rotations |
+| Selected cartons | A fixed combination, such as one Box4 or two Box2 cartons |
+| Unknowns to calculate | Each item's carton assignment, rotation and XYZ position |
+| Rules | Every item assigned once; inside boundaries; no overlap; weight and fill limits |
+| Search settings | Remaining time budget, worker count and random seed |
 
-For example, two items may fit side by side, one in front of the other, or one above the other. At least one such separation must hold for every pair sharing a carton. Having enough total volume alone does not establish that their shapes fit together.
+The item data and carton capacities become constants in the model. The choices become variables, and the packing rules become constraints. Our code builds a `CpModel`, then calls:
+
+```python
+status = solver.Solve(model)
+```
+
+The library runs locally inside the application process. Our implementation sends no request to a Google service.
+
+#### How does it calculate the arrangement?
+
+Consider two items measuring **60 × 40 × 30 mm** and one carton with usable dimensions **100 × 80 × 30 mm**. For this illustration, assume these orientations are allowed, weight capacity is sufficient, and the fill limit is 100%.
+
+We let CP-SAT choose each item's position, while enforcing:
+
+```text
+x + item_length ≤ carton_length
+y + item_width  ≤ carton_width
+z + item_height ≤ carton_height
+```
+
+Positions must also be nonnegative. Every item must belong to exactly one carton. For each pair in the same carton, at least one separation must hold: one item is to the left, right, front, back, above or below the other.
+
+One valid answer for this example is:
+
+| Item | Position (x, y, z), mm | Dimensions, mm |
+| --- | --- | --- |
+| A | (0, 0, 0) | 60 × 40 × 30 |
+| B | (0, 40, 0) | 60 × 40 × 30 |
+
+Their combined width is 80 mm, so both fit without overlap. Their combined volume fills 60% of the usable carton. This is an illustrative arrangement, rather than a recorded solver run.
+
+Conceptually, CP-SAT narrows possible values using the rules, explores remaining choices and abandons branches that lead to contradictions. It returns an assignment satisfying all constraints, proves that none exists, or stops without an answer when its budget expires.
+
+CP-SAT uses integer variables. Our code multiplies dimensions by 1,000 before solving and converts the resulting positions and dimensions back afterwards.
+
+#### Where does the optimization happen?
+
+**Our current CP-SAT model has no `Minimize()` objective.** We use it to answer a feasibility question for each fixed carton combination.
+
+Our Python code handles carton optimization by testing combinations in priority order:
+
+1. Fewest cartons first.
+2. Within that count, lowest total external carton volume first.
+3. Ask CP-SAT whether each combination can accommodate all items.
+
+If all earlier combinations are ruled out, the first feasible combination establishes the best carton objective. Without an objective inside the model, CP-SAT can stop at the first valid arrangement for that combination.
+
+| Our Python code | CP-SAT |
+| --- | --- |
+| Chooses which carton combination to test next | Calculates item assignments, rotations and positions |
+| Prioritizes fewer cartons and lower total volume | Enforces the mathematical packing constraints |
+| Manages the shared deadline and Fast fallback | Reports feasible, infeasible or unresolved |
+
+CP-SAT can optimize an objective directly. Our current design achieves carton optimization through ordered feasibility checks.
+
+For Google's explanation of the modeling interface, see [CP-SAT variables, constraints and solver statuses](https://developers.google.com/optimization/cp/cp_solver) and [adding an optimization objective](https://developers.google.com/optimization/cp/cp_example).
 
 ### 4. Return a packing or move to the next combination
 

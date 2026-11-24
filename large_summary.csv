@@ -1,0 +1,7 @@
+stage,change,median_ms,mean_ms,p95_ms,max_ms,total_s,not_proven,objective_differs_from_s0
+S0,Current Best (no speed-ups),13650.98,18343.92,59584.97,62181.47,440.25,2,0
+S1,+ #5 Start from Fast's layout,13097.63,15512.07,28006.14,62707.69,372.29,1,0
+S2,+ #1 Don't redo Fast's work,161.59,8796.33,28225.85,61611.82,211.11,1,0
+S3,+ #3 Identical cartons,176.43,8463.16,27670.04,60306.94,203.12,1,0
+S4,+ #2 Identical items,162.63,8168.06,29638.41,60179.13,196.03,1,0
+S5,+ #4 Impossible pairs (all on),237.55,8089.75,31106.02,38904.42,194.15,0,0
